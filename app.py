@@ -6,13 +6,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = Flask(__name__)
+# Configure Flask instance path for serverless environments
+if os.environ.get('VERCEL'):
+    # Use /tmp for instance folder on Vercel (writable)
+    app = Flask(__name__, instance_path='/tmp/instance')
+else:
+    app = Flask(__name__)
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 
 # Database configuration
 if os.environ.get('DATABASE_URL'):
     # Use PostgreSQL on Vercel
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+    database_url = os.environ['DATABASE_URL']
+    # Handle both postgres:// and postgresql:// schemes
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
 else:
     # Use SQLite for local development
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hospital.db'
@@ -88,6 +102,37 @@ def initialize_database_route():
         return jsonify({'message': 'Database initialized successfully!'}), 200
     except Exception as e:
         return jsonify({'error': f'Database initialization failed: {str(e)}'}), 500
+
+# Create admin user route for Vercel
+@app.route('/create-admin-secret-route-67890')
+def create_admin_user_route():
+    """One-time admin user creation for production"""
+    try:
+        # Check if admin already exists
+        existing_admin = User.query.filter_by(email='admin@hospital.com').first()
+        if existing_admin:
+            return jsonify({'message': 'Admin user already exists!'}), 200
+        
+        # Create admin user
+        admin = User(
+            username='admin',
+            email='admin@hospital.com',
+            password_hash=generate_password_hash('admin123'),
+            full_name='System Administrator',
+            role='admin'
+        )
+        db.session.add(admin)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Admin user created successfully!',
+            'username': 'admin',
+            'password': 'admin123',
+            'note': 'Please change this password after first login!'
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Admin creation failed: {str(e)}'}), 500
 
 # Routes
 @app.route('/')
