@@ -31,7 +31,7 @@ def create_patient_accounts():
             new_user = User(
                 name=patient.name,
                 email=email,
-                password=generate_password_hash('patient123'),  # Default password
+                password_hash=generate_password_hash('patient123'),  # Default password
                 role='patient',
                 patient_id=patient.id,
                 created_at=datetime.now(timezone.utc)

@@ -14,21 +14,21 @@ def create_seed_data():
         admin_user = User(
             name='Dr. Sarah Johnson',
             email='admin@hospital.com',
-            password=generate_password_hash('admin123'),
+            password_hash=generate_password_hash('admin123'),
             role='admin'
         )
         
         staff_user = User(
             name='Nurse Mary Wilson',
             email='nurse@hospital.com',
-            password=generate_password_hash('nurse123'),
+            password_hash=generate_password_hash('nurse123'),
             role='staff'
         )
         
         staff_user2 = User(
             name='Nurse John Smith',
             email='nurse2@hospital.com',
-            password=generate_password_hash('nurse123'),
+            password_hash=generate_password_hash('nurse123'),
             role='staff'
         )
         

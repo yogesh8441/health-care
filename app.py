@@ -155,7 +155,7 @@ def login():
         
         user = User.query.filter_by(email=email).first()
         
-        if user and check_password_hash(user.password, password):
+        if user and check_password_hash(user.password_hash, password):
             session['user_id'] = user.id
             session['user_role'] = user.role
             session['user_name'] = user.name
@@ -493,7 +493,7 @@ def create_patient_account():
         new_user = User(
             name=patient.name,
             email=email,
-            password=generate_password_hash(password),
+            password_hash=generate_password_hash(password),
             role='patient',
             patient_id=patient_id,
             created_at=datetime.now(timezone.utc)
@@ -1549,7 +1549,7 @@ def add_staff():
             name=name,
             email=email,
             role=role,
-            password=generate_password_hash(password),
+            password_hash=generate_password_hash(password),
             created_at=datetime.now(timezone.utc)
         )
         
@@ -1626,7 +1626,7 @@ def bulk_import_staff():
                     name=name,
                     email=email,
                     role=role,
-                    password=generate_password_hash(password),
+                    password_hash=generate_password_hash(password),
                     created_at=datetime.now(timezone.utc)
                 )
                 
