@@ -1,0 +1,38 @@
+═══════════════════════════════════════════════════════════════════════════
+YOUR ENVIRONMENT VARIABLES - READY TO USE IN VERCEL
+═══════════════════════════════════════════════════════════════════════════
+
+Copy these EXACTLY into Vercel (I've prepared them for you):
+
+---
+
+VARIABLE 1:
+-----------
+Name: DATABASE_URL
+
+Value: postgresql://neondb_owner:npg_mojRiqV7dP1Y@ep-dry-queen-adnlw7zw-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
+
+
+---
+
+VARIABLE 2:
+-----------
+Name: SECRET_KEY
+
+Value: 99044dacd9c65a31a306969e52a4dcba7ace5eb603f193d2f77c4e79c116b029
+
+
+---
+
+VARIABLE 3:
+-----------
+Name: VERCEL
+
+Value: 1
+
+
+═══════════════════════════════════════════════════════════════════════════
+NEXT: GO TO VERCEL AND ADD THESE!
+═══════════════════════════════════════════════════════════════════════════
+
+I'll open Vercel for you now...

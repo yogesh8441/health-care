@@ -115,10 +115,9 @@ def create_admin_user_route():
         
         # Create admin user
         admin = User(
-            username='admin',
+            name='System Administrator',
             email='admin@hospital.com',
             password_hash=generate_password_hash('admin123'),
-            full_name='System Administrator',
             role='admin'
         )
         db.session.add(admin)
@@ -126,7 +125,7 @@ def create_admin_user_route():
         
         return jsonify({
             'message': 'Admin user created successfully!',
-            'username': 'admin',
+            'email': 'admin@hospital.com',
             'password': 'admin123',
             'note': 'Please change this password after first login!'
         }), 200

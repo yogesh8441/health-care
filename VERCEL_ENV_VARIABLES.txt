@@ -1,0 +1,95 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║              VERCEL ENVIRONMENT VARIABLES - COPY & PASTE                 ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+When deploying to Vercel, add these THREE environment variables:
+
+═══════════════════════════════════════════════════════════════════════════
+VARIABLE 1: DATABASE_URL
+═══════════════════════════════════════════════════════════════════════════
+
+Name: DATABASE_URL
+
+Value: [PASTE YOUR POSTGRESQL CONNECTION STRING HERE]
+
+Example formats:
+  Vercel Postgres:
+    postgresql://user:password@host.vercel-storage.com:5432/database
+  
+  Supabase:
+    postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:5432/postgres
+
+⚠️  IMPORTANT: Replace with your actual PostgreSQL connection string!
+
+
+═══════════════════════════════════════════════════════════════════════════
+VARIABLE 2: SECRET_KEY
+═══════════════════════════════════════════════════════════════════════════
+
+Name: SECRET_KEY
+
+Value: 99044dacd9c65a31a306969e52a4dcba7ace5eb603f193d2f77c4e79c116b029
+
+✅ Already generated for you! Copy the value above.
+
+
+═══════════════════════════════════════════════════════════════════════════
+VARIABLE 3: VERCEL
+═══════════════════════════════════════════════════════════════════════════
+
+Name: VERCEL
+
+Value: 1
+
+✅ This tells the app it's running on Vercel
+
+
+═══════════════════════════════════════════════════════════════════════════
+QUICK COPY-PASTE FORMAT
+═══════════════════════════════════════════════════════════════════════════
+
+DATABASE_URL=postgresql://your_connection_string_here
+SECRET_KEY=99044dacd9c65a31a306969e52a4dcba7ace5eb603f193d2f77c4e79c116b029
+VERCEL=1
+
+
+═══════════════════════════════════════════════════════════════════════════
+HOW TO ADD IN VERCEL
+═══════════════════════════════════════════════════════════════════════════
+
+1. During import at vercel.com/new:
+   - Click "Environment Variables" section
+   - Add each variable one by one
+   
+2. Or after deployment:
+   - Go to Project → Settings → Environment Variables
+   - Add each variable
+   - Redeploy the project
+
+
+═══════════════════════════════════════════════════════════════════════════
+NEXT STEPS AFTER DEPLOYMENT
+═══════════════════════════════════════════════════════════════════════════
+
+After Vercel deployment completes:
+
+1. Initialize Database:
+   Visit: https://your-app-name.vercel.app/init-db-secret-route-12345
+
+2. Create Admin User:
+   Visit: https://your-app-name.vercel.app/create-admin-secret-route-67890
+   
+   You'll get credentials:
+   Email: admin@hospital.com
+   Password: admin123
+
+3. Login and Test:
+   Visit: https://your-app-name.vercel.app/login
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+✅ SAVED! Keep this file safe for reference.
+
