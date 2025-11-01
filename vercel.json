@@ -3,21 +3,19 @@
   "builds": [
     {
       "src": "wsgi.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "static/",
-      "use": "@vercel/static"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "wsgi.py"
     }
-  ]
+  ],
+  "env": {
+    "VERCEL": "1"
+  }
 }

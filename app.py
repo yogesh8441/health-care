@@ -23,12 +23,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 from models import db, User, Ward, Bed, Patient, Oxygen, ActivityLog, MedicalRecord, Medication, Inventory, Shift, Notification, Appointment, EmergencyAlert
 db.init_app(app)
 
-# Create tables
-with app.app_context():
-    db.create_all()
-    # Create helpful indexes (SQLite: IF NOT EXISTS)
-    try:
-        statements = [
+# Initialize database function
+def init_db():
+    """Initialize the database tables and indexes"""
+    with app.app_context():
+        db.create_all()
+        # Create helpful indexes (SQLite: IF NOT EXISTS)
+        try:
+            statements = [
             # User
             "CREATE INDEX IF NOT EXISTS idx_user_email ON user (email)",
             "CREATE INDEX IF NOT EXISTS idx_user_role ON user (role)",
@@ -66,12 +68,16 @@ with app.app_context():
             "CREATE INDEX IF NOT EXISTS idx_appointment_patient_id ON appointment (patient_id)",
             "CREATE INDEX IF NOT EXISTS idx_appointment_scheduled_time ON appointment (scheduled_time)",
             "CREATE INDEX IF NOT EXISTS idx_appointment_status ON appointment (status)"
-        ]
-        for stmt in statements:
-            db.session.execute(stmt)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+            ]
+            for stmt in statements:
+                db.session.execute(stmt)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+# Call init_db only in local development
+if not os.environ.get('VERCEL'):
+    init_db()
 
 # Routes
 @app.route('/')
