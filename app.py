@@ -133,50 +133,82 @@ def create_admin_user_route():
         db.session.rollback()
         return jsonify({'error': f'Admin creation failed: {str(e)}'}), 500
 
+# Health check route
+@app.route('/health')
+def health_check():
+    """Simple health check endpoint"""
+    db_status = 'not_configured'
+    try:
+        if 'DATABASE_URL' in os.environ:
+            db_status = 'configured'
+            # Try to connect
+            db.session.execute('SELECT 1')
+            db_status = 'connected'
+    except Exception as e:
+        db_status = f'error: {str(e)[:100]}'
+    
+    return jsonify({
+        'status': 'ok',
+        'vercel': os.environ.get('VERCEL', 'false'),
+        'database_status': db_status,
+        'secret_key_set': bool(os.environ.get('SECRET_KEY'))
+    }), 200
+
 # Routes
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-        if user.role == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        elif user.role == 'staff':
-            return redirect(url_for('staff_dashboard'))
-        else:  # patient role
-            return redirect(url_for('patient_dashboard'))
-    return redirect(url_for('login'))
+    try:
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+            if user:
+                if user.role == 'admin':
+                    return redirect(url_for('admin_dashboard'))
+                elif user.role == 'staff':
+                    return redirect(url_for('staff_dashboard'))
+                else:  # patient role
+                    return redirect(url_for('patient_dashboard'))
+            else:
+                session.clear()
+        return redirect(url_for('login'))
+    except Exception as e:
+        # If database not initialized, redirect to login
+        session.clear()
+        return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        
-        user = User.query.filter_by(email=email).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            session['user_role'] = user.role
-            session['user_name'] = user.name
+        try:
+            email = request.form['email']
+            password = request.form['password']
             
-            # Log activity
-            log = ActivityLog(
-                user_id=user.id,
-                action='login',
-                target='system',
-                timestamp=datetime.now(timezone.utc)
-            )
-            db.session.add(log)
-            db.session.commit()
+            user = User.query.filter_by(email=email).first()
             
-            if user.role == 'admin':
-                return redirect(url_for('admin_dashboard'))
-            elif user.role == 'staff':
-                return redirect(url_for('staff_dashboard'))
-            else:  # patient role
-                return redirect(url_for('patient_dashboard'))
-        else:
-            flash('Invalid email or password', 'error')
+            if user and check_password_hash(user.password_hash, password):
+                session['user_id'] = user.id
+                session['user_role'] = user.role
+                session['user_name'] = user.name
+                
+                # Log activity
+                log = ActivityLog(
+                    user_id=user.id,
+                    action='login',
+                    target='system',
+                    timestamp=datetime.now(timezone.utc)
+                )
+                db.session.add(log)
+                db.session.commit()
+                
+                if user.role == 'admin':
+                    return redirect(url_for('admin_dashboard'))
+                elif user.role == 'staff':
+                    return redirect(url_for('staff_dashboard'))
+                else:  # patient role
+                    return redirect(url_for('patient_dashboard'))
+            else:
+                flash('Invalid email or password', 'error')
+        except Exception as e:
+            flash('Database not initialized. Please contact administrator.', 'error')
     
     return render_template('login.html')
 
