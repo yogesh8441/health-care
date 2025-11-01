@@ -79,6 +79,16 @@ def init_db():
 if not os.environ.get('VERCEL'):
     init_db()
 
+# Database initialization route for Vercel
+@app.route('/init-db-secret-route-12345')
+def initialize_database_route():
+    """One-time database initialization for production"""
+    try:
+        init_db()
+        return jsonify({'message': 'Database initialized successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': f'Database initialization failed: {str(e)}'}), 500
+
 # Routes
 @app.route('/')
 def index():
