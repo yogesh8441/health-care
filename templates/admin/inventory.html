@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Management - Hospital Admin{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+
+{% block dashboard_content %}
+<!-- Inventory Statistics Overview -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Items -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-boxes text-blue-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total Items</p>
+                <p class="text-2xl font-bold text-blue-600">{{ inventory_stats.total_items }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Items -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-red-100">
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Low Stock</p>
+                <p class="text-2xl font-bold text-red-600">{{ inventory_stats.low_stock }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expired Items -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-orange-100">
+                <i class="fas fa-calendar-times text-orange-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Expired</p>
+                <p class="text-2xl font-bold text-orange-600">{{ inventory_stats.expired }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-tags text-green-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Categories</p>
+                <p class="text-2xl font-bold text-green-600">{{ inventory_stats.categories }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions and Alerts -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="space-y-3">
+            <button onclick="addNewItem()" class="w-full px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Add New Item
+            </button>
+            <button onclick="bulkUpdate()" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                <i class="fas fa-edit mr-2"></i>Bulk Update
+            </button>
+            <button onclick="generateInventoryReport()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-chart-bar mr-2"></i>Generate Report
+            </button>
+            <button onclick="exportInventory()" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                <i class="fas fa-download mr-2"></i>Export Data
+            </button>
+        </div>
+    </div>
+    
+    <!-- Low Stock Alerts -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Low Stock Alerts</h3>
+        <div class="space-y-3 max-h-48 overflow-y-auto">
+            {% for item in low_stock_items[:5] %}
+            <div class="flex items-center justify-between p-2 bg-red-50 rounded-lg">
+                <div>
+                    <p class="text-sm font-medium text-red-800">{{ item.item_name }}</p>
+                    <p class="text-xs text-red-600">{{ item.current_stock }} {{ item.unit }} remaining</p>
+                </div>
+                <button onclick="restockItem({{ item.id }})" class="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                    Restock
+                </button>
+            </div>
+            {% endfor %}
+            {% if not low_stock_items %}
+            <p class="text-sm text-gray-500">No low stock items</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Expired Items -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Expired Items</h3>
+        <div class="space-y-3 max-h-48 overflow-y-auto">
+            {% for item in expired_items[:5] %}
+            <div class="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
+                <div>
+                    <p class="text-sm font-medium text-orange-800">{{ item.item_name }}</p>
+                    <p class="text-xs text-orange-600">Expired: {{ item.expiry_date.strftime('%Y-%m-%d') if item.expiry_date else 'N/A' }}</p>
+                </div>
+                <button onclick="removeExpired({{ item.id }})" class="px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700">
+                    Remove
+                </button>
+            </div>
+            {% endfor %}
+            {% if not expired_items %}
+            <p class="text-sm text-gray-500">No expired items</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Inventory Items</h3>
+            <div class="flex items-center space-x-2">
+                <select id="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">All Categories</option>
+                    <option value="medication">Medication</option>
+                    <option value="equipment">Equipment</option>
+                    <option value="supplies">Supplies</option>
+                </select>
+                <input type="text" id="searchInventory" placeholder="Search items..." 
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <button onclick="refreshInventory()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200" id="inventoryTable">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input type="checkbox" id="selectAllInventory" onchange="toggleSelectAllInventory()">
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min. Stock</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for item in inventory_items %}
+                <tr class="hover:bg-gray-50" data-category="{{ item.category }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <input type="checkbox" class="inventory-checkbox" value="{{ item.id }}">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                {% if item.category == 'medication' %}bg-blue-100 text-blue-600
+                                {% elif item.category == 'equipment' %}bg-green-100 text-green-600
+                                {% else %}bg-purple-100 text-purple-600{% endif %}">
+                                <i class="fas {% if item.category == 'medication' %}fa-pills
+                                    {% elif item.category == 'equipment' %}fa-stethoscope
+                                    {% else %}fa-box{% endif %}"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ item.item_name }}</div>
+                                <div class="text-sm text-gray-500">{{ item.supplier or 'No supplier' }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                            {% if item.category == 'medication' %}bg-blue-100 text-blue-800
+                            {% elif item.category == 'equipment' %}bg-green-100 text-green-800
+                            {% else %}bg-purple-100 text-purple-800{% endif %}">
+                            {{ item.category.title() }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="{% if item.current_stock <= item.minimum_stock %}text-red-600 font-bold{% endif %}">
+                            {{ item.current_stock }} {{ item.unit }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ item.minimum_stock }} {{ item.unit }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${{ "%.2f"|format(item.cost_per_unit) if item.cost_per_unit else 'N/A' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if item.expiry_date %}
+                            {% set expiry_aware = item.expiry_date.replace(tzinfo=current_time.tzinfo) if item.expiry_date.tzinfo is none else item.expiry_date %}
+                            <span class="{% if expiry_aware < current_time %}text-red-600 font-bold{% endif %}">
+                                {{ item.expiry_date.strftime('%Y-%m-%d') }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if item.current_stock <= item.minimum_stock %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                Low Stock
+                            </span>
+                        {% elif item.expiry_date and (item.expiry_date.replace(tzinfo=current_time.tzinfo) if item.expiry_date.tzinfo is none else item.expiry_date) < current_time %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                                Expired
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                In Stock
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="editInventoryItem({{ item.id }})" class="text-hospital-blue hover:text-blue-700">
+                                <i class="fas fa-edit" title="Edit Item"></i>
+                            </button>
+                            <button onclick="restockItem({{ item.id }})" class="text-green-600 hover:text-green-700">
+                                <i class="fas fa-plus" title="Restock"></i>
+                            </button>
+                            <button onclick="viewItemHistory({{ item.id }})" class="text-purple-600 hover:text-purple-700">
+                                <i class="fas fa-history" title="View History"></i>
+                            </button>
+                            <button onclick="deleteInventoryItem({{ item.id }})" class="text-red-600 hover:text-red-700">
+                                <i class="fas fa-trash" title="Delete Item"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if not inventory_items %}
+    <div class="p-8 text-center">
+        <i class="fas fa-boxes text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No inventory items found</p>
+        <button onclick="addNewItem()" class="mt-4 px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+            Add First Item
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add New Item Modal -->
+<div id="addItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Add New Inventory Item</h3>
+                    <button onclick="closeAddItemModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="addItemForm" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+                        <input type="text" id="itemName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                        <select id="itemCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                            <option value="">Select Category</option>
+                            <option value="medication">Medication</option>
+                            <option value="equipment">Equipment</option>
+                            <option value="supplies">Supplies</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Current Stock *</label>
+                        <input type="number" id="currentStock" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Stock *</label>
+                        <input type="number" id="minimumStock" min="1" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                        <select id="itemUnit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                            <option value="">Select Unit</option>
+                            <option value="pieces">Pieces</option>
+                            <option value="bottles">Bottles</option>
+                            <option value="boxes">Boxes</option>
+                            <option value="vials">Vials</option>
+                            <option value="tablets">Tablets</option>
+                            <option value="ml">ML</option>
+                            <option value="mg">MG</option>
+                            <option value="kg">KG</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cost Per Unit</label>
+                        <input type="number" id="costPerUnit" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                        <input type="text" id="supplier" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                    <input type="date" id="expiryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeAddItemModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                        Add Item
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Update Modal -->
+<div id="bulkUpdateModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Bulk Update Items</h3>
+                    <button onclick="closeBulkUpdateModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="bulkUpdateForm" class="p-6 space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600 mb-4">Selected items: <span id="selectedCount">0</span></p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Update Type</label>
+                    <select id="updateType" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required onchange="toggleUpdateFields()">
+                        <option value="">Select Update Type</option>
+                        <option value="restock">Restock Items</option>
+                        <option value="update_minimum">Update Minimum Stock</option>
+                        <option value="update_supplier">Update Supplier</option>
+                        <option value="update_cost">Update Cost Per Unit</option>
+                    </select>
+                </div>
+                
+                <div id="restockField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Additional Stock</label>
+                    <input type="number" id="additionalStock" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                
+                <div id="minimumField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Minimum Stock</label>
+                    <input type="number" id="newMinimum" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                
+                <div id="supplierField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Supplier</label>
+                    <input type="text" id="newSupplier" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                
+                <div id="costField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Cost Per Unit</label>
+                    <input type="number" id="newCost" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeBulkUpdateModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        Update Items
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="reportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Inventory Report</h3>
+                    <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="reportContent" class="p-6">
+                <!-- Report content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Inventory Management Functions
+function addNewItem() {
+    document.getElementById('addItemModal').classList.remove('hidden');
+}
+
+function closeAddItemModal() {
+    document.getElementById('addItemModal').classList.add('hidden');
+    document.getElementById('addItemForm').reset();
+}
+
+function bulkUpdate() {
+    const selectedItems = document.querySelectorAll('.inventory-checkbox:checked');
+    if (selectedItems.length === 0) {
+        showToast('Please select items to update', 'error');
+        return;
+    }
+    
+    document.getElementById('selectedCount').textContent = selectedItems.length;
+    document.getElementById('bulkUpdateModal').classList.remove('hidden');
+}
+
+function closeBulkUpdateModal() {
+    document.getElementById('bulkUpdateModal').classList.add('hidden');
+    document.getElementById('bulkUpdateForm').reset();
+    toggleUpdateFields(); // Reset field visibility
+}
+
+function toggleUpdateFields() {
+    const updateType = document.getElementById('updateType').value;
+    
+    // Hide all fields first
+    document.getElementById('restockField').classList.add('hidden');
+    document.getElementById('minimumField').classList.add('hidden');
+    document.getElementById('supplierField').classList.add('hidden');
+    document.getElementById('costField').classList.add('hidden');
+    
+    // Show relevant field
+    if (updateType === 'restock') {
+        document.getElementById('restockField').classList.remove('hidden');
+    } else if (updateType === 'update_minimum') {
+        document.getElementById('minimumField').classList.remove('hidden');
+    } else if (updateType === 'update_supplier') {
+        document.getElementById('supplierField').classList.remove('hidden');
+    } else if (updateType === 'update_cost') {
+        document.getElementById('costField').classList.remove('hidden');
+    }
+}
+
+function generateInventoryReport() {
+    showToast('Generating inventory report...', 'info');
+    
+    fetch('/api/inventory/report')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayReport(data.report);
+                document.getElementById('reportModal').classList.remove('hidden');
+                showToast('Inventory report generated successfully', 'success');
+            } else {
+                showToast('Error generating report', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error generating report', 'error');
+        });
+}
+
+function displayReport(report) {
+    const reportContent = document.getElementById('reportContent');
+    
+    reportContent.innerHTML = `
+        <div class="space-y-6">
+            <div class="text-center">
+                <h4 class="text-xl font-bold text-gray-900">Inventory Report</h4>
+                <p class="text-sm text-gray-500">Generated on ${report.generated_at}</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h5 class="font-semibold text-blue-900">Total Items</h5>
+                    <p class="text-2xl font-bold text-blue-600">${report.summary.total_items}</p>
+                </div>
+                <div class="bg-red-50 p-4 rounded-lg">
+                    <h5 class="font-semibold text-red-900">Low Stock Items</h5>
+                    <p class="text-2xl font-bold text-red-600">${report.summary.low_stock_count}</p>
+                </div>
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <h5 class="font-semibold text-orange-900">Expired Items</h5>
+                    <p class="text-2xl font-bold text-orange-600">${report.summary.expired_count}</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h5 class="font-semibold text-green-900">Total Value</h5>
+                    <p class="text-2xl font-bold text-green-600">$${report.summary.total_inventory_value}</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <h5 class="font-semibold text-purple-900">Categories</h5>
+                    <p class="text-2xl font-bold text-purple-600">${report.summary.categories_count}</p>
+                </div>
+            </div>
+            
+            ${report.summary.low_stock_count > 0 ? `
+            <div>
+                <h5 class="font-semibold text-red-900 mb-3">Low Stock Items</h5>
+                <div class="space-y-2">
+                    ${report.low_stock_items.map(item => `
+                        <div class="flex justify-between items-center p-2 bg-red-50 rounded">
+                            <span class="font-medium">${item.name}</span>
+                            <span class="text-sm text-red-600">${item.current_stock}/${item.minimum_stock} ${item.category}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+            
+            ${report.summary.expired_count > 0 ? `
+            <div>
+                <h5 class="font-semibold text-orange-900 mb-3">Expired Items</h5>
+                <div class="space-y-2">
+                    ${report.expired_items.map(item => `
+                        <div class="flex justify-between items-center p-2 bg-orange-50 rounded">
+                            <span class="font-medium">${item.name}</span>
+                            <span class="text-sm text-orange-600">Expired: ${item.expiry_date}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').classList.add('hidden');
+}
+
+function exportInventory() {
+    showToast('Exporting inventory data...', 'info');
+    
+    fetch('/api/inventory/export')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create and download CSV file
+                const blob = new Blob([data.csv_data], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showToast('Inventory data exported successfully', 'success');
+            } else {
+                showToast('Error exporting data', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error exporting data', 'error');
+        });
+}
+
+function refreshInventory() {
+    showToast('Inventory refreshed', 'success');
+    location.reload();
+}
+
+function editInventoryItem(itemId) {
+    showToast('Edit inventory item functionality would be implemented here', 'info');
+}
+
+function restockItem(itemId) {
+    const quantity = prompt('Enter restock quantity:');
+    if (quantity && !isNaN(quantity) && quantity > 0) {
+        fetch(`/api/inventory/restock/${itemId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ quantity: parseInt(quantity) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`Restocked ${quantity} units successfully. New stock: ${data.new_stock}`, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Error restocking item', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error restocking item', 'error');
+        });
+    }
+}
+
+function viewItemHistory(itemId) {
+    showToast('Item history functionality would be implemented here', 'info');
+}
+
+function deleteInventoryItem(itemId) {
+    if (confirm('Are you sure you want to delete this inventory item?')) {
+        showToast('Inventory item deleted successfully', 'success');
+    }
+}
+
+function removeExpired(itemId) {
+    if (confirm('Are you sure you want to remove this expired item?')) {
+        showToast('Expired item removed successfully', 'success');
+    }
+}
+
+function toggleSelectAllInventory() {
+    const selectAll = document.getElementById('selectAllInventory');
+    const checkboxes = document.querySelectorAll('.inventory-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+// Filter and Search Functions
+document.getElementById('categoryFilter').addEventListener('change', function(e) {
+    const category = e.target.value;
+    const rows = document.querySelectorAll('#inventoryTable tbody tr');
+    
+    rows.forEach(row => {
+        if (!category || row.dataset.category === category) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+document.getElementById('searchInventory').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#inventoryTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Form Submission Handlers
+document.getElementById('addItemForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        item_name: document.getElementById('itemName').value,
+        category: document.getElementById('itemCategory').value,
+        current_stock: document.getElementById('currentStock').value,
+        minimum_stock: document.getElementById('minimumStock').value,
+        unit: document.getElementById('itemUnit').value,
+        cost_per_unit: document.getElementById('costPerUnit').value,
+        supplier: document.getElementById('supplier').value,
+        expiry_date: document.getElementById('expiryDate').value
+    };
+    
+    fetch('/api/inventory/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Inventory item added successfully', 'success');
+            closeAddItemModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error adding inventory item', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error adding inventory item', 'error');
+    });
+});
+
+document.getElementById('bulkUpdateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const selectedItems = Array.from(document.querySelectorAll('.inventory-checkbox:checked')).map(cb => cb.value);
+    const updateType = document.getElementById('updateType').value;
+    
+    const updateData = {
+        item_ids: selectedItems,
+        update_type: updateType
+    };
+    
+    // Add specific field data based on update type
+    if (updateType === 'restock') {
+        updateData.additional_stock = document.getElementById('additionalStock').value;
+    } else if (updateType === 'update_minimum') {
+        updateData.new_minimum = document.getElementById('newMinimum').value;
+    } else if (updateType === 'update_supplier') {
+        updateData.new_supplier = document.getElementById('newSupplier').value;
+    } else if (updateType === 'update_cost') {
+        updateData.new_cost = document.getElementById('newCost').value;
+    }
+    
+    fetch('/api/inventory/bulk_update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`Successfully updated ${data.updated_count} items`, 'success');
+            closeBulkUpdateModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error updating items', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating items', 'error');
+    });
+});
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

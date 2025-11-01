@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+
+{% block title %}Ward Status - Hospital Management{% endblock %}
+{% block page_title %}Ward Status Overview{% endblock %}
+
+{% block dashboard_content %}
+<!-- Ward Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    {% for stat in ward_stats %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ stat.ward.name }}</h3>
+                <p class="text-sm text-gray-500">{{ stat.ward.type.title() }} Ward</p>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-bold text-hospital-blue">{{ stat.total_beds }}</div>
+                <div class="text-xs text-gray-500">Total Beds</div>
+            </div>
+        </div>
+        
+        <!-- Occupancy Rate -->
+        <div class="mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-700">Occupancy Rate</span>
+                <span class="text-sm font-bold text-gray-900">{{ "%.1f"|format(stat.occupancy_rate) }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-hospital-blue h-2 rounded-full" style="width: {{ stat.occupancy_rate }}%"></div>
+            </div>
+        </div>
+        
+        <!-- Bed Status Breakdown -->
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Available: {{ stat.available_beds }}</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Occupied: {{ stat.occupied_beds }}</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Reserved: {{ stat.reserved_beds }}</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Cleaning: {{ stat.cleaning_beds }}</span>
+            </div>
+            {% if stat.maintenance_beds > 0 %}
+            <div class="flex items-center col-span-2">
+                <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Maintenance: {{ stat.maintenance_beds }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <button onclick="viewWardDetails('{{ stat.ward.id }}')" 
+                    class="w-full px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                <i class="fas fa-eye mr-2"></i>View Details
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Ward Comparison Chart -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Ward Occupancy Comparison</h3>
+        <button onclick="refreshCharts()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+            <i class="fas fa-sync-alt mr-2"></i>Refresh
+        </button>
+    </div>
+    <div class="relative h-64">
+        <canvas id="wardComparisonChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent Changes -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Recent Bed Changes (24h)</h3>
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                {{ recent_changes|length }} Changes
+            </span>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ward</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bed</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for bed, ward in recent_changes %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ ward.name }}</div>
+                        <div class="text-sm text-gray-500">{{ ward.type.title() }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ bed.bed_number }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border status-{{ bed.status }}">
+                            {% if bed.status == 'empty' %}
+                                <i class="fas fa-circle text-green-500 mr-1"></i>Available
+                            {% elif bed.status == 'occupied' %}
+                                <i class="fas fa-circle text-red-500 mr-1"></i>Occupied
+                            {% elif bed.status == 'reserved' %}
+                                <i class="fas fa-circle text-yellow-500 mr-1"></i>Reserved
+                            {% elif bed.status == 'cleaning' %}
+                                <i class="fas fa-circle text-orange-500 mr-1"></i>Cleaning
+                            {% elif bed.status == 'maintenance' %}
+                                <i class="fas fa-circle text-gray-500 mr-1"></i>Maintenance
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ bed.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="viewBedDetails({{ bed.id }})" class="text-hospital-blue hover:text-blue-700" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if bed.status == 'occupied' %}
+                            <button onclick="quickBedAction({{ bed.id }}, 'mark_available')" class="text-green-600 hover:text-green-700" title="Mark Available">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button onclick="quickBedAction({{ bed.id }}, 'mark_cleaning')" class="text-orange-600 hover:text-orange-700" title="Mark for Cleaning">
+                                <i class="fas fa-broom"></i>
+                            </button>
+                            {% elif bed.status == 'empty' %}
+                            <button onclick="quickBedAction({{ bed.id }}, 'reserve_bed')" class="text-yellow-600 hover:text-yellow-700" title="Reserve Bed">
+                                <i class="fas fa-bookmark"></i>
+                            </button>
+                            {% elif bed.status == 'cleaning' %}
+                            <button onclick="quickBedAction({{ bed.id }}, 'cleaning_complete')" class="text-green-600 hover:text-green-700" title="Cleaning Complete">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                            {% elif bed.status == 'reserved' %}
+                            <button onclick="quickBedAction({{ bed.id }}, 'cancel_reservation')" class="text-red-600 hover:text-red-700" title="Cancel Reservation">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% elif bed.status == 'maintenance' %}
+                            <button onclick="quickBedAction({{ bed.id }}, 'maintenance_complete')" class="text-green-600 hover:text-green-700" title="Maintenance Complete">
+                                <i class="fas fa-tools"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if not recent_changes %}
+    <div class="p-8 text-center">
+        <i class="fas fa-bed text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No recent bed changes in the last 24 hours</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Ward Details Modal -->
+<div id="wardDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900" id="wardModalTitle">Ward Details</h3>
+            <button onclick="closeWardModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <div id="wardModalContent">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bed Details Modal -->
+<div id="bedDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900" id="bedModalTitle">Bed Details</h3>
+            <button onclick="closeBedModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <div id="bedModalContent">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Ward Comparison Chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('wardComparisonChart').getContext('2d');
+    
+    const wardNames = [
+        {% for stat in ward_stats %}
+        '{{ stat.ward.name }}',
+        {% endfor %}
+    ];
+    
+    const occupancyRates = [
+        {% for stat in ward_stats %}
+        {{ stat.occupancy_rate }},
+        {% endfor %}
+    ];
+    
+    const availableBeds = [
+        {% for stat in ward_stats %}
+        {{ stat.available_beds }},
+        {% endfor %}
+    ];
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: wardNames,
+            datasets: [{
+                label: 'Occupancy Rate (%)',
+                data: occupancyRates,
+                backgroundColor: 'rgba(44, 123, 229, 0.8)',
+                borderColor: 'rgba(44, 123, 229, 1)',
+                borderWidth: 1,
+                yAxisID: 'y'
+            }, {
+                label: 'Available Beds',
+                data: availableBeds,
+                backgroundColor: 'rgba(72, 199, 116, 0.8)',
+                borderColor: 'rgba(72, 199, 116, 1)',
+                borderWidth: 1,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Occupancy Rate (%)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Available Beds'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+});
+
+// Ward Details Modal
+async function viewWardDetails(wardId) {
+    const modal = document.getElementById('wardDetailsModal');
+    const content = document.getElementById('wardModalContent');
+    const title = document.getElementById('wardModalTitle');
+    
+    // Show modal with loading state
+    modal.classList.remove('hidden');
+    content.innerHTML = `
+        <div class="animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/api/ward-details/${wardId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            title.textContent = `${data.ward.name} - ${data.ward.type.charAt(0).toUpperCase() + data.ward.type.slice(1)} Ward`;
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Ward Statistics -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Ward Statistics</h4>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Beds:</span>
+                                <span class="font-medium">${data.statistics.total_beds}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Occupied:</span>
+                                <span class="font-medium text-red-600">${data.statistics.occupied_beds}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Available:</span>
+                                <span class="font-medium text-green-600">${data.statistics.available_beds}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Cleaning:</span>
+                                <span class="font-medium text-orange-600">${data.statistics.cleaning_beds}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Reserved:</span>
+                                <span class="font-medium text-yellow-600">${data.statistics.reserved_beds}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Occupancy Rate:</span>
+                                <span class="font-medium text-blue-600">${data.statistics.occupancy_rate.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Patients -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Current Patients (${data.patients.length})</h4>
+                        <div class="max-h-48 overflow-y-auto">
+                            ${data.patients.length > 0 ? data.patients.map(patient => `
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                                    <div>
+                                        <div class="font-medium text-sm">${patient.name}</div>
+                                        <div class="text-xs text-gray-500">${patient.age}y, ${patient.gender} • Bed ${patient.bed_number}</div>
+                                    </div>
+                                    ${patient.oxygen_required ? `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">O2: ${patient.oxygen_flow_rate}L/min</span>` : ''}
+                                </div>
+                            `).join('') : '<p class="text-gray-500 text-sm">No patients currently admitted</p>'}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bed Details -->
+                <div class="mt-6">
+                    <h4 class="font-semibold text-gray-900 mb-3">All Beds</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        ${data.beds.map(bed => `
+                            <div class="border rounded-lg p-3 ${bed.status === 'occupied' ? 'bg-red-50 border-red-200' : 
+                                bed.status === 'empty' ? 'bg-green-50 border-green-200' : 
+                                bed.status === 'cleaning' ? 'bg-orange-50 border-orange-200' : 
+                                bed.status === 'reserved' ? 'bg-yellow-50 border-yellow-200' : 
+                                'bg-gray-50 border-gray-200'}">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-medium">${bed.bed_number}</span>
+                                    <span class="text-xs px-2 py-1 rounded-full ${bed.status === 'occupied' ? 'bg-red-100 text-red-800' : 
+                                        bed.status === 'empty' ? 'bg-green-100 text-green-800' : 
+                                        bed.status === 'cleaning' ? 'bg-orange-100 text-orange-800' : 
+                                        bed.status === 'reserved' ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-gray-100 text-gray-800'}">${bed.status.charAt(0).toUpperCase() + bed.status.slice(1)}</span>
+                                </div>
+                                ${bed.patient_name ? `<div class="text-xs text-gray-600 mt-1">${bed.patient_name}</div>` : ''}
+                                ${bed.oxygen_required ? `<div class="text-xs text-blue-600 mt-1">O2: ${bed.oxygen_flow_rate}L/min</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<div class="text-red-600">Error loading ward details: ${data.error}</div>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<div class="text-red-600">Error loading ward details: ${error.message}</div>`;
+    }
+}
+
+// Bed Details Modal
+async function viewBedDetails(bedId) {
+    const modal = document.getElementById('bedDetailsModal');
+    const content = document.getElementById('bedModalContent');
+    const title = document.getElementById('bedModalTitle');
+    
+    // Show modal with loading state
+    modal.classList.remove('hidden');
+    content.innerHTML = `
+        <div class="animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/api/bed-details/${bedId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            title.textContent = `Bed ${data.bed_number} - ${data.ward.name}`;
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Bed Information -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Bed Information</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Bed Number:</span>
+                                <span class="font-medium">${data.bed_number}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Status:</span>
+                                <span class="px-2 py-1 rounded-full text-xs ${data.status === 'occupied' ? 'bg-red-100 text-red-800' : 
+                                    data.status === 'empty' ? 'bg-green-100 text-green-800' : 
+                                    data.status === 'cleaning' ? 'bg-orange-100 text-orange-800' : 
+                                    data.status === 'reserved' ? 'bg-yellow-100 text-yellow-800' : 
+                                    'bg-gray-100 text-gray-800'}">${data.status.charAt(0).toUpperCase() + data.status.slice(1)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Ward:</span>
+                                <span class="font-medium">${data.ward.name} (${data.ward.type})</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Last Updated:</span>
+                                <span class="font-medium">${data.updated_at}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Patient Information -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Patient Information</h4>
+                        ${data.patient ? `
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Name:</span>
+                                    <span class="font-medium">${data.patient.name}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Age:</span>
+                                    <span class="font-medium">${data.patient.age} years</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Gender:</span>
+                                    <span class="font-medium">${data.patient.gender}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Admission:</span>
+                                    <span class="font-medium">${data.patient.admission_date || 'N/A'}</span>
+                                </div>
+                                ${data.patient.oxygen_required ? `
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Oxygen:</span>
+                                        <span class="font-medium text-blue-600">${data.patient.oxygen_flow_rate}L/min</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : '<p class="text-gray-500 text-sm">No patient currently assigned</p>'}
+                    </div>
+                </div>
+                
+                <!-- Recent Activities -->
+                <div class="mt-6">
+                    <h4 class="font-semibold text-gray-900 mb-3">Recent Activities</h4>
+                    <div class="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                        ${data.recent_activities.length > 0 ? data.recent_activities.map(activity => `
+                            <div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                                <div>
+                                    <div class="text-sm">${activity.description}</div>
+                                    <div class="text-xs text-gray-500">by ${activity.user}</div>
+                                </div>
+                                <div class="text-xs text-gray-500">${activity.timestamp}</div>
+                            </div>
+                        `).join('') : '<p class="text-gray-500 text-sm">No recent activities</p>'}
+                    </div>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<div class="text-red-600">Error loading bed details: ${data.error}</div>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<div class="text-red-600">Error loading bed details: ${error.message}</div>`;
+    }
+}
+
+// Quick Bed Actions
+async function quickBedAction(bedId, action) {
+    try {
+        const response = await fetch(`/api/bed-action/${bedId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: action })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error performing action: ' + error.message, 'error');
+    }
+}
+
+// Modal Controls
+function closeWardModal() {
+    document.getElementById('wardDetailsModal').classList.add('hidden');
+}
+
+function closeBedModal() {
+    document.getElementById('bedDetailsModal').classList.add('hidden');
+}
+
+// Close modals when clicking outside
+document.getElementById('wardDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeWardModal();
+    }
+});
+
+document.getElementById('bedDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeBedModal();
+    }
+});
+
+// Refresh Charts
+function refreshCharts() {
+    showToast('Refreshing charts...', 'info');
+    setTimeout(() => location.reload(), 1000);
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

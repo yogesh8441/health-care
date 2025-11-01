@@ -1,0 +1,966 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Management - Hospital Admin{% endblock %}
+{% block page_title %}Patient Management{% endblock %}
+
+{% block dashboard_content %}
+<!-- Patients Overview Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                <i class="fas fa-users text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_details|length }}</h3>
+                <p class="text-sm text-gray-500">Active Patients</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-600">
+                <i class="fas fa-pills text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_stats.total_medications }}</h3>
+                <p class="text-sm text-gray-500">Active Medications</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                <i class="fas fa-lungs text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_stats.oxygen_required }}</h3>
+                <p class="text-sm text-gray-500">Oxygen Required</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                <i class="fas fa-user-check text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_stats.total_discharged }}</h3>
+                <p class="text-sm text-gray-500">Total Discharged</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Action Buttons -->
+<div class="mb-6 flex flex-wrap gap-3">
+    <button onclick="admitNewPatient()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <i class="fas fa-user-plus mr-2"></i>Admit New Patient
+    </button>
+    <button onclick="bulkDischarge()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        <i class="fas fa-users mr-2"></i>Bulk Discharge
+    </button>
+    <button onclick="generateReport()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+        <i class="fas fa-chart-bar mr-2"></i>Generate Report
+    </button>
+    <button onclick="exportPatients()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+        <i class="fas fa-download mr-2"></i>Export Data
+    </button>
+</div>
+
+<!-- Patients Table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Patient List</h3>
+            <div class="flex space-x-2">
+                <input type="text" id="searchInput" placeholder="Search patients..." 
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="refreshPatients()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input type="checkbox" id="selectAll" class="rounded border-gray-300">
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diagnosis</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medications</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="patientsTable">
+                {% for patient_info in patient_details %}
+                <tr class="hover:bg-gray-50 patient-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <input type="checkbox" class="patient-checkbox rounded border-gray-300" value="{{ patient_info.patient.id }}">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-blue-600">
+                                        {{ patient_info.patient.name[0] }}{{ patient_info.patient.name.split()[1][0] if patient_info.patient.name.split()|length > 1 else '' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900 patient-name">{{ patient_info.patient.name }}</div>
+                                <div class="text-sm text-gray-500">{{ patient_info.patient.age }}y, {{ patient_info.patient.gender }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ patient_info.ward_name }}</div>
+                        <div class="text-sm text-gray-500">Bed {{ patient_info.bed_number }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">
+                            {% if patient_info.latest_record %}
+                                {{ patient_info.latest_record.diagnosis[:50] }}{% if patient_info.latest_record.diagnosis|length > 50 %}...{% endif %}
+                            {% else %}
+                                <span class="text-gray-400">No diagnosis recorded</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ patient_info.medication_count }} Active
+                            </span>
+                            {% if patient_info.patient.oxygen_required %}
+                            <span class="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                O2: {{ patient_info.patient.oxygen_flow_rate }}L/min
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            Admitted
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="viewPatientDetails({{ patient_info.patient.id }})" 
+                                    class="text-blue-600 hover:text-blue-700" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="editPatient({{ patient_info.patient.id }})" 
+                                    class="text-green-600 hover:text-green-700" title="Edit Patient">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="dischargePatient({{ patient_info.patient.id }})" 
+                                    class="text-red-600 hover:text-red-700" title="Discharge Patient">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                            <button onclick="transferPatient({{ patient_info.patient.id }})" 
+                                    class="text-purple-600 hover:text-purple-700" title="Transfer Ward">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if not patient_details %}
+    <div class="p-8 text-center">
+        <i class="fas fa-user-injured text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No active patients found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Patient Details Modal -->
+<div id="patientDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900" id="patientModalTitle">Patient Details</h3>
+            <button onclick="closePatientModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="patientModalContent">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admit Patient Modal -->
+<div id="admitPatientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Admit New Patient</h3>
+            <button onclick="closeAdmitPatientModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="admitPatientForm">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Patient Name</label>
+                <input type="text" id="patientName" required class="w-full border-gray-300 rounded-lg" placeholder="Enter patient name">
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                    <input type="number" id="patientAge" required class="w-full border-gray-300 rounded-lg" placeholder="Age" min="1" max="120">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                    <select id="patientGender" required class="w-full border-gray-300 rounded-lg">
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Assign Bed</label>
+                <select id="patientBed" required class="w-full border-gray-300 rounded-lg">
+                    <option value="">Loading available beds...</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <div class="flex items-center">
+                    <input type="checkbox" id="oxygenRequired" class="rounded border-gray-300" onchange="toggleOxygenFlow()">
+                    <label class="ml-2 text-sm font-medium text-gray-700">Oxygen Required</label>
+                </div>
+            </div>
+            <div id="oxygenFlowDiv" class="mb-4 hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Oxygen Flow Rate (L/min)</label>
+                <input type="number" id="oxygenFlowRate" class="w-full border-gray-300 rounded-lg" placeholder="Flow rate" min="0.1" max="15" step="0.1">
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeAdmitPatientModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Admit Patient
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Patient Report Modal -->
+<div id="patientReportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-4/5 max-w-6xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Patient Management Report</h3>
+            <button onclick="closePatientReportModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="patientReportContent">
+            <!-- Report content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Edit Patient Modal -->
+<div id="editPatientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Edit Patient Information</h3>
+            <button onclick="closeEditPatientModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="editPatientForm">
+            <input type="hidden" id="editPatientId">
+            
+            <!-- Basic Information -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-gray-900 mb-3">Basic Information</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                            <input type="text" id="editPatientName" required class="w-full border-gray-300 rounded-lg" placeholder="Patient full name">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                                <input type="number" id="editPatientAge" required class="w-full border-gray-300 rounded-lg" min="1" max="120">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                                <select id="editPatientGender" required class="w-full border-gray-300 rounded-lg">
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                            <input type="tel" id="editPatientPhone" class="w-full border-gray-300 rounded-lg" placeholder="Phone number">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                            <textarea id="editPatientAddress" class="w-full border-gray-300 rounded-lg" rows="2" placeholder="Patient address"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-gray-900 mb-3">Medical Information</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+                            <select id="editPatientBloodGroup" class="w-full border-gray-300 rounded-lg">
+                                <option value="">Select Blood Group</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+                            <textarea id="editPatientAllergies" class="w-full border-gray-300 rounded-lg" rows="2" placeholder="Known allergies"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Medical History</label>
+                            <textarea id="editPatientMedicalHistory" class="w-full border-gray-300 rounded-lg" rows="3" placeholder="Previous medical conditions"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Emergency Contact</label>
+                            <input type="text" id="editPatientEmergencyContact" class="w-full border-gray-300 rounded-lg" placeholder="Emergency contact details">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bed Assignment and Oxygen -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-blue-900 mb-3">Bed Assignment</h4>
+                    <div>
+                        <label class="block text-sm font-medium text-blue-700 mb-2">Assigned Bed</label>
+                        <select id="editPatientBed" class="w-full border-blue-300 rounded-lg">
+                            <option value="">Loading beds...</option>
+                        </select>
+                        <p class="text-xs text-blue-600 mt-1">Select a different bed to transfer patient</p>
+                    </div>
+                </div>
+                
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-orange-900 mb-3">Oxygen Support</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="editOxygenRequired" class="rounded border-orange-300" onchange="toggleEditOxygenFlow()">
+                            <label class="ml-2 text-sm font-medium text-orange-700">Oxygen Required</label>
+                        </div>
+                        <div id="editOxygenFlowDiv" class="hidden">
+                            <label class="block text-sm font-medium text-orange-700 mb-2">Flow Rate (L/min)</label>
+                            <input type="number" id="editOxygenFlowRate" class="w-full border-orange-300 rounded-lg" min="0.1" max="15" step="0.1" placeholder="Flow rate">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeEditPatientModal()" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-save mr-2"></i>Update Patient
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.patient-row');
+    
+    rows.forEach(row => {
+        const patientName = row.querySelector('.patient-name').textContent.toLowerCase();
+        if (patientName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Select all functionality
+document.getElementById('selectAll').addEventListener('change', function(e) {
+    const checkboxes = document.querySelectorAll('.patient-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = e.target.checked;
+    });
+});
+
+// Patient details modal
+async function viewPatientDetails(patientId) {
+    const modal = document.getElementById('patientDetailsModal');
+    const content = document.getElementById('patientModalContent');
+    const title = document.getElementById('patientModalTitle');
+    
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div></div>';
+    
+    try {
+        const response = await fetch(`/api/patient-details/${patientId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            title.textContent = `${data.patient.name} - Patient Details`;
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Patient Information</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Name:</span>
+                                <span class="font-medium">${data.patient.name}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Age:</span>
+                                <span class="font-medium">${data.patient.age} years</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Gender:</span>
+                                <span class="font-medium">${data.patient.gender}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Location:</span>
+                                <span class="font-medium">${data.location}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Admitted:</span>
+                                <span class="font-medium">${data.patient.admitted_on}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Current Treatment</h4>
+                        ${data.latest_record ? `
+                            <div class="space-y-2 text-sm">
+                                <div><strong>Diagnosis:</strong> ${data.latest_record.diagnosis}</div>
+                                <div><strong>Treatment:</strong> ${data.latest_record.treatment}</div>
+                                <div><strong>Doctor:</strong> ${data.latest_record.doctor_name}</div>
+                            </div>
+                        ` : '<p class="text-gray-500 text-sm">No treatment records found</p>'}
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <h4 class="font-semibold text-gray-900 mb-3">Active Medications (${data.medications.length})</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${data.medications.map(med => `
+                            <div class="border rounded-lg p-3 bg-green-50 border-green-200">
+                                <div class="font-medium text-green-800">${med.medication_name}</div>
+                                <div class="text-sm text-green-600">${med.dosage} - ${med.frequency}</div>
+                                <div class="text-xs text-gray-500">Route: ${med.route} | By: ${med.prescribed_by}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${data.medications.length === 0 ? '<p class="text-gray-500 text-sm">No active medications</p>' : ''}
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<div class="text-red-600">Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<div class="text-red-600">Error loading patient details</div>`;
+    }
+}
+
+// Admin-specific functions
+// Edit Patient
+async function editPatient(patientId) {
+    const modal = document.getElementById('editPatientModal');
+    modal.classList.remove('hidden');
+    
+    // Load patient data
+    try {
+        const response = await fetch(`/api/patients/get/${patientId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            const patient = data.patient;
+            
+            // Populate form fields
+            document.getElementById('editPatientId').value = patient.id;
+            document.getElementById('editPatientName').value = patient.name;
+            document.getElementById('editPatientAge').value = patient.age;
+            document.getElementById('editPatientGender').value = patient.gender;
+            document.getElementById('editPatientPhone').value = patient.phone;
+            document.getElementById('editPatientAddress').value = patient.address;
+            document.getElementById('editPatientEmergencyContact').value = patient.emergency_contact;
+            document.getElementById('editPatientBloodGroup').value = patient.blood_group;
+            document.getElementById('editPatientAllergies').value = patient.allergies;
+            document.getElementById('editPatientMedicalHistory').value = patient.medical_history;
+            
+            // Handle oxygen requirements
+            const oxygenCheckbox = document.getElementById('editOxygenRequired');
+            const oxygenFlowDiv = document.getElementById('editOxygenFlowDiv');
+            const oxygenFlowRate = document.getElementById('editOxygenFlowRate');
+            
+            oxygenCheckbox.checked = patient.oxygen_required;
+            if (patient.oxygen_required) {
+                oxygenFlowDiv.classList.remove('hidden');
+                oxygenFlowRate.value = patient.oxygen_flow_rate;
+            } else {
+                oxygenFlowDiv.classList.add('hidden');
+            }
+            
+            // Populate bed options
+            const bedSelect = document.getElementById('editPatientBed');
+            bedSelect.innerHTML = '';
+            
+            if (patient.available_beds && patient.available_beds.length > 0) {
+                patient.available_beds.forEach(bed => {
+                    const option = document.createElement('option');
+                    option.value = bed.id;
+                    option.textContent = bed.display;
+                    if (bed.id === patient.current_bed_id) {
+                        option.selected = true;
+                    }
+                    bedSelect.appendChild(option);
+                });
+            } else {
+                bedSelect.innerHTML = '<option value="">No beds available</option>';
+            }
+        } else {
+            showToast(data.error || 'Error loading patient data', 'error');
+            closeEditPatientModal();
+        }
+    } catch (error) {
+        showToast('Error loading patient data', 'error');
+        closeEditPatientModal();
+    }
+}
+
+function dischargePatient(patientId) {
+    if (confirm('Are you sure you want to discharge this patient?')) {
+        showToast('Discharging patient...', 'info');
+        // Implementation would go here
+    }
+}
+
+function transferPatient(patientId) {
+    showToast('Transfer patient functionality - Coming soon!', 'info');
+}
+
+// Admit New Patient
+async function admitNewPatient() {
+    const modal = document.getElementById('admitPatientModal');
+    modal.classList.remove('hidden');
+    
+    // Load available beds
+    try {
+        const response = await fetch('/api/beds/available');
+        const data = await response.json();
+        
+        const bedSelect = document.getElementById('patientBed');
+        bedSelect.innerHTML = '<option value="">Select Available Bed</option>';
+        
+        if (data.beds && data.beds.length > 0) {
+            data.beds.forEach(bed => {
+                bedSelect.innerHTML += `<option value="${bed.id}">${bed.ward_name} - Bed ${bed.bed_number}</option>`;
+            });
+        } else {
+            bedSelect.innerHTML = '<option value="">No beds available</option>';
+        }
+    } catch (error) {
+        showToast('Error loading available beds', 'error');
+    }
+}
+
+// Handle admit patient form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const admitForm = document.getElementById('admitPatientForm');
+    if (admitForm) {
+        admitForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('patientName').value,
+                age: parseInt(document.getElementById('patientAge').value),
+                gender: document.getElementById('patientGender').value,
+                bed_id: parseInt(document.getElementById('patientBed').value),
+                oxygen_required: document.getElementById('oxygenRequired').checked,
+                oxygen_flow_rate: document.getElementById('oxygenFlowRate').value || null
+            };
+            
+            try {
+                const response = await fetch('/api/patients/admit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Patient admitted successfully!', 'success');
+                    closeAdmitPatientModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.error || 'Error admitting patient', 'error');
+                }
+            } catch (error) {
+                showToast('Error admitting patient', 'error');
+            }
+        });
+    }
+    
+    // Handle edit patient form submission
+    const editForm = document.getElementById('editPatientForm');
+    if (editForm) {
+        editForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const patientId = document.getElementById('editPatientId').value;
+            const bedValue = document.getElementById('editPatientBed').value;
+            const formData = {
+                name: document.getElementById('editPatientName').value,
+                age: parseInt(document.getElementById('editPatientAge').value),
+                gender: document.getElementById('editPatientGender').value,
+                phone: document.getElementById('editPatientPhone').value,
+                address: document.getElementById('editPatientAddress').value,
+                emergency_contact: document.getElementById('editPatientEmergencyContact').value,
+                blood_group: document.getElementById('editPatientBloodGroup').value,
+                allergies: document.getElementById('editPatientAllergies').value,
+                medical_history: document.getElementById('editPatientMedicalHistory').value,
+                bed_id: bedValue ? parseInt(bedValue) : null,
+                oxygen_required: document.getElementById('editOxygenRequired').checked,
+                oxygen_flow_rate: document.getElementById('editOxygenFlowRate').value || null
+            };
+            
+            try {
+                const response = await fetch(`/api/patients/edit/${patientId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Patient information updated successfully!', 'success');
+                    closeEditPatientModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.error || 'Error updating patient', 'error');
+                }
+            } catch (error) {
+                showToast('Error updating patient information', 'error');
+            }
+        });
+    }
+});
+
+// Bulk Discharge
+async function bulkDischarge() {
+    const selectedPatients = document.querySelectorAll('.patient-checkbox:checked');
+    if (selectedPatients.length === 0) {
+        showToast('Please select patients to discharge', 'error');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to discharge ${selectedPatients.length} patients?`)) {
+        const patientIds = Array.from(selectedPatients).map(cb => parseInt(cb.value));
+        
+        try {
+            const response = await fetch('/api/patients/bulk-discharge', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ patient_ids: patientIds })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showToast(`Successfully discharged ${result.discharged_count} patients`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(result.error || 'Error during bulk discharge', 'error');
+            }
+        } catch (error) {
+            showToast('Error during bulk discharge', 'error');
+        }
+    }
+}
+
+// Generate Report
+async function generateReport() {
+    const modal = document.getElementById('patientReportModal');
+    const content = document.getElementById('patientReportContent');
+    
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div></div>';
+    
+    try {
+        const response = await fetch('/api/patients/report');
+        const data = await response.json();
+        
+        if (response.ok) {
+            const report = data.report;
+            content.innerHTML = `
+                <div class="printable-report">
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">Patient Management Report</h2>
+                        <p class="text-gray-600">Generated on ${report.generated_at}</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-blue-800">Total Patients</h3>
+                            <p class="text-2xl font-bold text-blue-600">${report.summary.total_patients}</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-green-800">Active Patients</h3>
+                            <p class="text-2xl font-bold text-green-600">${report.summary.active_patients}</p>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-orange-800">Oxygen Required</h3>
+                            <p class="text-2xl font-bold text-orange-600">${report.summary.oxygen_required}</p>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-purple-800">Avg Stay (Days)</h3>
+                            <p class="text-2xl font-bold text-purple-600">${report.summary.avg_length_of_stay}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-gray-900 mb-3">Recent Activity (7 days)</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span>Admissions:</span>
+                                    <span class="font-medium">${report.summary.recent_admissions}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Discharges:</span>
+                                    <span class="font-medium">${report.summary.recent_discharges}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Occupancy Rate:</span>
+                                    <span class="font-medium">${report.occupancy_rate}%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-gray-900 mb-3">Ward Distribution</h3>
+                            <div class="space-y-2">
+                                ${Object.entries(report.ward_distribution).map(([ward, count]) => `
+                                    <div class="flex justify-between">
+                                        <span>${ward}:</span>
+                                        <span class="font-medium">${count} patients</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-gray-900 mb-3">Monthly Admission Trends</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            ${report.monthly_trends.map(trend => `
+                                <div class="bg-white p-3 rounded border">
+                                    <div class="text-sm text-gray-600">${trend.month}</div>
+                                    <div class="text-lg font-semibold">${trend.admissions} admissions</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-6 no-print">
+                    <button onclick="printReport()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-print mr-2"></i>Print Report
+                    </button>
+                    <button onclick="closePatientReportModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                        Close
+                    </button>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<div class="text-red-600">Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<div class="text-red-600">Error generating report</div>`;
+    }
+}
+
+// Export Patients
+async function exportPatients() {
+    try {
+        showToast('Preparing export...', 'info');
+        
+        const response = await fetch('/api/patients/export');
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `patients_export_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('Patient data exported successfully!', 'success');
+        } else {
+            const result = await response.json();
+            showToast(result.error || 'Error exporting data', 'error');
+        }
+    } catch (error) {
+        showToast('Error exporting patient data', 'error');
+    }
+}
+
+// Close modal
+function closePatientModal() {
+    document.getElementById('patientDetailsModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('patientDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePatientModal();
+    }
+});
+
+// Refresh patients
+function refreshPatients() {
+    showToast('Refreshing patient list...', 'info');
+    setTimeout(() => location.reload(), 1000);
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Modal helper functions
+function closeEditPatientModal() {
+    document.getElementById('editPatientModal').classList.add('hidden');
+    document.getElementById('editPatientForm').reset();
+    document.getElementById('editOxygenFlowDiv').classList.add('hidden');
+}
+
+function toggleEditOxygenFlow() {
+    const checkbox = document.getElementById('editOxygenRequired');
+    const flowDiv = document.getElementById('editOxygenFlowDiv');
+    
+    if (checkbox.checked) {
+        flowDiv.classList.remove('hidden');
+    } else {
+        flowDiv.classList.add('hidden');
+        document.getElementById('editOxygenFlowRate').value = '';
+    }
+}
+
+function closeAdmitPatientModal() {
+    document.getElementById('admitPatientModal').classList.add('hidden');
+    document.getElementById('admitPatientForm').reset();
+    document.getElementById('oxygenFlowDiv').classList.add('hidden');
+}
+
+function closePatientReportModal() {
+    document.getElementById('patientReportModal').classList.add('hidden');
+}
+
+function toggleOxygenFlow() {
+    const checkbox = document.getElementById('oxygenRequired');
+    const flowDiv = document.getElementById('oxygenFlowDiv');
+    
+    if (checkbox.checked) {
+        flowDiv.classList.remove('hidden');
+    } else {
+        flowDiv.classList.add('hidden');
+        document.getElementById('oxygenFlowRate').value = '';
+    }
+}
+
+function printReport() {
+    const printContent = document.querySelector('.printable-report');
+    const originalContent = document.body.innerHTML;
+    
+    document.body.innerHTML = `
+        <style>
+            @media print {
+                .no-print { display: none !important; }
+                body { font-family: Arial, sans-serif; }
+                .grid { display: block; }
+                .grid > div { margin-bottom: 1rem; }
+            }
+        </style>
+        ${printContent.outerHTML}
+    `;
+    
+    window.print();
+    document.body.innerHTML = originalContent;
+    
+    // Re-attach event listeners after restoring content
+    location.reload();
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(e) {
+    const admitModal = document.getElementById('admitPatientModal');
+    const reportModal = document.getElementById('patientReportModal');
+    const editModal = document.getElementById('editPatientModal');
+    
+    if (e.target === admitModal) {
+        closeAdmitPatientModal();
+    }
+    if (e.target === reportModal) {
+        closePatientReportModal();
+    }
+    if (e.target === editModal) {
+        closeEditPatientModal();
+    }
+});
+</script>
+{% endblock %}

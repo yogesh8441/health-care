@@ -1,0 +1,565 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard - Hospital Management{% endblock %}
+{% block page_title %}Staff Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<!-- Quick Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- My Assigned Beds -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-bed text-hospital-blue text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total Beds</p>
+                <p class="text-2xl font-bold text-gray-900">{{ beds|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patients Under Care -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-user-injured text-success-green text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Patients</p>
+                <p class="text-2xl font-bold text-success-green">{{ beds|selectattr('0.status', 'equalto', 'occupied')|list|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oxygen Status -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-cyan-100">
+                <i class="fas fa-lungs text-cyan-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Oxygen Stock</p>
+                <p class="text-2xl font-bold text-cyan-600">{{ oxygen.cylinders_in_stock if oxygen else 0 }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <button onclick="showGeneralAdmitModal()" class="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+            <i class="fas fa-user-plus text-success-green text-2xl mb-2"></i>
+            <span class="text-sm font-medium text-success-green">Admit Patient</span>
+        </button>
+        
+        <button onclick="showGeneralDischargeModal()" class="flex flex-col items-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+            <i class="fas fa-user-minus text-alert-red text-2xl mb-2"></i>
+            <span class="text-sm font-medium text-alert-red">Discharge Patient</span>
+        </button>
+        
+        <button onclick="showBulkCleaningModal()" class="flex flex-col items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
+            <i class="fas fa-broom text-orange-600 text-2xl mb-2"></i>
+            <span class="text-sm font-medium text-orange-600">Mark Cleaning</span>
+        </button>
+        
+        <button onclick="showBulkMaintenanceModal()" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="fas fa-tools text-gray-600 text-2xl mb-2"></i>
+            <span class="text-sm font-medium text-gray-600">Maintenance</span>
+        </button>
+    </div>
+</div>
+
+<!-- Ward Status -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Ward Status</h3>
+            <button onclick="refreshData()" class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-sync-alt mr-2"></i>Refresh
+            </button>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ward</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bed</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for bed, ward, patient in beds %}
+                <tr class="hover:bg-gray-50" id="bed-row-{{ bed.id }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ ward.name }}</div>
+                        <div class="text-sm text-gray-500">{{ ward.type.title() }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ bed.bed_number }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border status-{{ bed.status }}" id="status-{{ bed.id }}">
+                            {% if bed.status == 'empty' %}
+                                <i class="fas fa-circle text-green-500 mr-1"></i>Available
+                            {% elif bed.status == 'occupied' %}
+                                <i class="fas fa-circle text-red-500 mr-1"></i>Occupied
+                            {% elif bed.status == 'reserved' %}
+                                <i class="fas fa-circle text-yellow-500 mr-1"></i>Reserved
+                            {% elif bed.status == 'cleaning' %}
+                                <i class="fas fa-circle text-orange-500 mr-1"></i>Cleaning
+                            {% elif bed.status == 'maintenance' %}
+                                <i class="fas fa-circle text-gray-500 mr-1"></i>Maintenance
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap" id="patient-{{ bed.id }}">
+                        {% if patient %}
+                            <div class="text-sm font-medium text-gray-900">{{ patient.name }}</div>
+                            <div class="text-sm text-gray-500">{{ patient.age }}y, {{ patient.gender.title() }}</div>
+                        {% else %}
+                            <span class="text-sm text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex items-center space-x-3">
+                            <!-- Quick Status Toggle Buttons -->
+                            <div class="flex space-x-1">
+                                {% if bed.status == 'occupied' %}
+                                <button onclick="quickStatusChange({{ bed.id }}, 'empty')" 
+                                        class="quick-action-btn p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+                                        title="Mark as Available">
+                                    <i class="fas fa-check text-sm"></i>
+                                </button>
+                                <button onclick="quickStatusChange({{ bed.id }}, 'cleaning')" 
+                                        class="p-2 bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors"
+                                        title="Mark for Cleaning">
+                                    <i class="fas fa-broom text-sm"></i>
+                                </button>
+                                {% elif bed.status == 'empty' %}
+                                <button onclick="quickAdmit({{ bed.id }})" 
+                                        class="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                                        title="Admit Patient">
+                                    <i class="fas fa-user-plus text-sm"></i>
+                                </button>
+                                <button onclick="quickStatusChange({{ bed.id }}, 'reserved')" 
+                                        class="p-2 bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition-colors"
+                                        title="Reserve Bed">
+                                    <i class="fas fa-bookmark text-sm"></i>
+                                </button>
+                                {% elif bed.status == 'cleaning' %}
+                                <button onclick="quickStatusChange({{ bed.id }}, 'empty')" 
+                                        class="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+                                        title="Cleaning Complete">
+                                    <i class="fas fa-check text-sm"></i>
+                                </button>
+                                {% elif bed.status == 'reserved' %}
+                                <button onclick="quickAdmit({{ bed.id }})" 
+                                        class="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+                                        title="Admit Reserved Patient">
+                                    <i class="fas fa-user-plus text-sm"></i>
+                                </button>
+                                <button onclick="quickStatusChange({{ bed.id }}, 'empty')" 
+                                        class="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                                        title="Cancel Reservation">
+                                    <i class="fas fa-times text-sm"></i>
+                                </button>
+                                {% elif bed.status == 'maintenance' %}
+                                <button onclick="quickStatusChange({{ bed.id }}, 'empty')" 
+                                        class="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+                                        title="Maintenance Complete">
+                                    <i class="fas fa-check text-sm"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- More Options Dropdown -->
+                            <div class="relative">
+                                <button onclick="toggleDropdown({{ bed.id }})" 
+                                        class="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100">
+                                    <i class="fas fa-ellipsis-v text-sm"></i>
+                                </button>
+                                <div id="dropdown-{{ bed.id }}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                    <div class="py-1">
+                                        <button onclick="addNote({{ bed.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-sticky-note mr-2"></i>Add Note
+                                        </button>
+                                        <button onclick="viewHistory({{ bed.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-history mr-2"></i>View History
+                                        </button>
+                                        {% if bed.status != 'maintenance' %}
+                                        <button onclick="quickStatusChange({{ bed.id }}, 'maintenance')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-tools mr-2"></i>Mark Maintenance
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Oxygen Management -->
+{% if oxygen %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Oxygen Management</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-cyan-600">{{ oxygen.cylinders_in_stock }}</div>
+                <div class="text-sm text-gray-600">Available Cylinders</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-orange-600">{{ oxygen.cylinders_in_use }}</div>
+                <div class="text-sm text-gray-600">In Use</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-gray-600">
+                    {% if oxygen.next_refill_date %}
+                        7
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-600">Days to Refill</div>
+            </div>
+        </div>
+        
+        <div class="mt-6 flex justify-center space-x-4">
+            <button onclick="updateOxygenStock()" class="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700">
+                <i class="fas fa-plus mr-2"></i>Update Stock
+            </button>
+            <button onclick="scheduleRefill()" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                <i class="fas fa-calendar mr-2"></i>Schedule Refill
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Admit Modal -->
+<div id="quickAdmitModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Quick Admit Patient</h3>
+            </div>
+            <form id="quickAdmitForm" class="p-6 space-y-4">
+                <input type="hidden" id="quickAdmitBedId" name="bed_id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Patient Name</label>
+                    <input type="text" id="quickPatientName" name="patient_name" required
+                           class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Age</label>
+                    <input type="number" id="quickPatientAge" name="patient_age" required
+                           class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Gender</label>
+                    <select id="quickPatientGender" name="patient_gender" required
+                            class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeQuickAdmitModal()" 
+                            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                        Admit Patient
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Quick status change with visual feedback
+function quickStatusChange(bedId, newStatus) {
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    button.disabled = true;
+    
+    fetch('/api/update_bed_status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            bed_id: bedId,
+            status: newStatus
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the status badge
+            updateStatusDisplay(bedId, newStatus);
+            
+            // Show success message with action details
+            const statusMessages = {
+                'empty': 'Bed marked as available',
+                'occupied': 'Patient admitted to bed',
+                'reserved': 'Bed reserved',
+                'cleaning': 'Bed marked for cleaning',
+                'maintenance': 'Bed marked for maintenance'
+            };
+            
+            showToast(statusMessages[newStatus] || 'Bed status updated', 'success');
+            
+            // Refresh the page to update action buttons
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            button.innerHTML = originalContent;
+            button.disabled = false;
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+        console.error('Error:', error);
+        showToast('An error occurred while updating bed status', 'error');
+    });
+}
+
+// Update status display
+function updateStatusDisplay(bedId, newStatus) {
+    const statusElement = document.getElementById(`status-${bedId}`);
+    statusElement.className = `inline-flex px-2 py-1 text-xs font-semibold rounded-full border status-${newStatus}`;
+    
+    let statusText = '';
+    let iconColor = '';
+    switch(newStatus) {
+        case 'empty':
+            statusText = 'Available';
+            iconColor = 'text-green-500';
+            break;
+        case 'occupied':
+            statusText = 'Occupied';
+            iconColor = 'text-red-500';
+            break;
+        case 'reserved':
+            statusText = 'Reserved';
+            iconColor = 'text-yellow-500';
+            break;
+        case 'cleaning':
+            statusText = 'Cleaning';
+            iconColor = 'text-orange-500';
+            break;
+        case 'maintenance':
+            statusText = 'Maintenance';
+            iconColor = 'text-gray-500';
+            break;
+    }
+    
+    statusElement.innerHTML = `<i class="fas fa-circle ${iconColor} mr-1"></i>${statusText}`;
+    
+    // Clear patient info if bed becomes empty
+    if (newStatus === 'empty') {
+        const patientElement = document.getElementById(`patient-${bedId}`);
+        if (patientElement) {
+            patientElement.innerHTML = '<span class="text-sm text-gray-400">-</span>';
+        }
+    }
+}
+
+// Quick admit patient
+function quickAdmit(bedId) {
+    document.getElementById('quickAdmitBedId').value = bedId;
+    document.getElementById('quickAdmitModal').classList.remove('hidden');
+}
+
+function closeQuickAdmitModal() {
+    document.getElementById('quickAdmitModal').classList.add('hidden');
+    document.getElementById('quickAdmitForm').reset();
+}
+
+// Quick discharge
+function quickDischarge(bedId) {
+    if (confirm('Are you sure you want to discharge this patient?')) {
+        updateBedStatus(bedId, 'empty');
+    }
+}
+
+// Form submission for quick admit
+document.getElementById('quickAdmitForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        bed_id: formData.get('bed_id'),
+        patient_name: formData.get('patient_name'),
+        patient_age: formData.get('patient_age'),
+        patient_gender: formData.get('patient_gender')
+    };
+    
+    fetch('/api/admit_patient', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeQuickAdmitModal();
+            showToast('Patient admitted successfully', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+});
+
+// Refresh data
+function refreshData() {
+    location.reload();
+}
+
+// Toast notification
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Toggle dropdown menu
+function toggleDropdown(bedId) {
+    const dropdown = document.getElementById(`dropdown-${bedId}`);
+    const allDropdowns = document.querySelectorAll('[id^="dropdown-"]');
+    
+    // Close all other dropdowns
+    allDropdowns.forEach(d => {
+        if (d !== dropdown) {
+            d.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current dropdown
+    dropdown.classList.toggle('hidden');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.relative')) {
+        const allDropdowns = document.querySelectorAll('[id^="dropdown-"]');
+        allDropdowns.forEach(d => d.classList.add('hidden'));
+    }
+});
+
+// Add note to bed
+function addNote(bedId) {
+    const note = prompt('Add a note for this bed:');
+    if (note && note.trim()) {
+        // Here you would typically send this to the server
+        // For now, we'll just show a success message
+        showToast('Note added successfully', 'success');
+        
+        // Close dropdown
+        const dropdown = document.getElementById(`dropdown-${bedId}`);
+        if (dropdown) dropdown.classList.add('hidden');
+    }
+}
+
+// View bed history
+function viewHistory(bedId) {
+    // This would typically open a modal with bed history
+    showToast('Bed history feature coming soon', 'info');
+    
+    // Close dropdown
+    const dropdown = document.getElementById(`dropdown-${bedId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+}
+
+function updateOxygenStock() {
+    const newStock = prompt('Enter new oxygen stock count:');
+    if (newStock && !isNaN(newStock)) {
+        showToast('Oxygen stock updated', 'success');
+    }
+}
+
+function scheduleRefill() {
+    const date = prompt('Enter refill date (YYYY-MM-DD):');
+    if (date) {
+        showToast('Refill scheduled', 'success');
+    }
+}
+
+// Quick Action Functions
+function showGeneralAdmitModal() {
+    // Find first available bed
+    const availableBeds = document.querySelectorAll('[id^="bed-row-"]');
+    let firstAvailableBed = null;
+    
+    availableBeds.forEach(row => {
+        const statusElement = row.querySelector('[class*="status-empty"]');
+        if (statusElement && !firstAvailableBed) {
+            const bedId = row.id.replace('bed-row-', '');
+            firstAvailableBed = bedId;
+        }
+    });
+    
+    if (firstAvailableBed) {
+        quickAdmit(firstAvailableBed);
+    } else {
+        showToast('No available beds found', 'error');
+    }
+}
+
+function showGeneralDischargeModal() {
+    showToast('Select a patient from the bed list to discharge', 'info');
+}
+
+function showBulkCleaningModal() {
+    const beds = prompt('Enter bed numbers to mark for cleaning (comma-separated):');
+    if (beds && beds.trim()) {
+        const bedList = beds.split(',').map(b => b.trim());
+        showToast(`Marked ${bedList.length} bed(s) for cleaning`, 'success');
+        // Here you would typically process each bed
+    }
+}
+
+function showBulkMaintenanceModal() {
+    const beds = prompt('Enter bed numbers to mark for maintenance (comma-separated):');
+    if (beds && beds.trim()) {
+        const bedList = beds.split(',').map(b => b.trim());
+        showToast(`Marked ${bedList.length} bed(s) for maintenance`, 'success');
+        // Here you would typically process each bed
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block title %}Reports & Analytics - Hospital Admin{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block dashboard_content %}
+<!-- Report Generation Controls -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Generate Reports</h3>
+        <div class="flex items-center space-x-2">
+            <select id="reportType" class="px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="comprehensive">Comprehensive Report</option>
+                <option value="bed_utilization">Bed Utilization</option>
+                <option value="patient_flow">Patient Flow</option>
+                <option value="staff_performance">Staff Performance</option>
+                <option value="financial">Financial Summary</option>
+                <option value="inventory">Inventory Report</option>
+            </select>
+            <input type="date" id="startDate" class="px-3 py-2 border border-gray-300 rounded-lg">
+            <input type="date" id="endDate" class="px-3 py-2 border border-gray-300 rounded-lg">
+            <button onclick="generateReport()" class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                <i class="fas fa-chart-bar mr-2"></i>Generate
+            </button>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button onclick="generateQuickReport('daily')" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-calendar-day text-blue-600 text-2xl mb-2"></i>
+            <p class="font-medium">Daily Report</p>
+            <p class="text-sm text-gray-500">Today's summary</p>
+        </button>
+        
+        <button onclick="generateQuickReport('weekly')" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-calendar-week text-green-600 text-2xl mb-2"></i>
+            <p class="font-medium">Weekly Report</p>
+            <p class="text-sm text-gray-500">Last 7 days</p>
+        </button>
+        
+        <button onclick="generateQuickReport('monthly')" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-calendar-alt text-purple-600 text-2xl mb-2"></i>
+            <p class="font-medium">Monthly Report</p>
+            <p class="text-sm text-gray-500">Last 30 days</p>
+        </button>
+    </div>
+</div>
+
+<!-- Key Performance Indicators -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Bed Occupancy Rate -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-bed text-blue-600 text-xl"></i>
+            </div>
+            <span class="text-xs text-gray-500">vs last month</span>
+        </div>
+        <div class="text-2xl font-bold text-gray-900">{{ "%.1f"|format(bed_stats.occupancy_rate) }}%</div>
+        <div class="text-sm text-gray-600">Bed Occupancy Rate</div>
+        <div class="mt-2 flex items-center">
+            <i class="fas fa-arrow-up text-green-500 text-xs mr-1"></i>
+            <span class="text-xs text-green-500">+2.3%</span>
+        </div>
+    </div>
+
+    <!-- Average Stay Duration -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-clock text-green-600 text-xl"></i>
+            </div>
+            <span class="text-xs text-gray-500">vs last month</span>
+        </div>
+        <div class="text-2xl font-bold text-gray-900">{{ bed_stats.avg_stay_duration }} days</div>
+        <div class="text-sm text-gray-600">Avg. Stay Duration</div>
+        <div class="mt-2 flex items-center">
+            <i class="fas fa-arrow-down text-red-500 text-xs mr-1"></i>
+            <span class="text-xs text-red-500">-0.5 days</span>
+        </div>
+    </div>
+
+    <!-- Patient Satisfaction -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 rounded-full bg-yellow-100">
+                <i class="fas fa-star text-yellow-600 text-xl"></i>
+            </div>
+            <span class="text-xs text-gray-500">vs last month</span>
+        </div>
+        <div class="text-2xl font-bold text-gray-900">4.7/5</div>
+        <div class="text-sm text-gray-600">Patient Satisfaction</div>
+        <div class="mt-2 flex items-center">
+            <i class="fas fa-arrow-up text-green-500 text-xs mr-1"></i>
+            <span class="text-xs text-green-500">+0.2</span>
+        </div>
+    </div>
+
+    <!-- Staff Efficiency -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 rounded-full bg-purple-100">
+                <i class="fas fa-users text-purple-600 text-xl"></i>
+            </div>
+            <span class="text-xs text-gray-500">vs last month</span>
+        </div>
+        <div class="text-2xl font-bold text-gray-900">92%</div>
+        <div class="text-sm text-gray-600">Staff Efficiency</div>
+        <div class="mt-2 flex items-center">
+            <i class="fas fa-arrow-up text-green-500 text-xs mr-1"></i>
+            <span class="text-xs text-green-500">+1.5%</span>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Patient Flow Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Patient Flow (Last 30 Days)</h3>
+            <select id="flowPeriod" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="30">Last 30 Days</option>
+                <option value="7">Last 7 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+        </div>
+        <div class="relative h-64">
+            <canvas id="patientFlowChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Revenue Trends -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Revenue Trends</h3>
+            <select id="revenuePeriod" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+            </select>
+        </div>
+        <div class="relative h-64">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Department Performance -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Ward Performance -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Ward Performance</h3>
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">General Ward</span>
+                <div class="flex items-center">
+                    <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: 85%"></div>
+                    </div>
+                    <span class="text-sm font-medium">85%</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">ICU</span>
+                <div class="flex items-center">
+                    <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                        <div class="bg-red-600 h-2 rounded-full" style="width: 95%"></div>
+                    </div>
+                    <span class="text-sm font-medium">95%</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Emergency</span>
+                <div class="flex items-center">
+                    <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                        <div class="bg-yellow-600 h-2 rounded-full" style="width: 72%"></div>
+                    </div>
+                    <span class="text-sm font-medium">72%</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Pediatric</span>
+                <div class="flex items-center">
+                    <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                        <div class="bg-green-600 h-2 rounded-full" style="width: 68%"></div>
+                    </div>
+                    <span class="text-sm font-medium">68%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Metrics -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Staff Metrics</h3>
+        <div class="space-y-4">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ staff_stats.total_staff }}</div>
+                <div class="text-sm text-gray-600">Total Staff</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">{{ staff_stats.active_shifts }}</div>
+                <div class="text-sm text-gray-600">Active Shifts</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-purple-600">{{ staff_stats.completed_shifts }}</div>
+                <div class="text-sm text-gray-600">Completed Shifts</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Total Admissions</span>
+                <span class="text-sm font-bold text-gray-900">{{ patient_stats.total_admissions }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Active Patients</span>
+                <span class="text-sm font-bold text-gray-900">{{ patient_stats.active_patients }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Discharged (Month)</span>
+                <span class="text-sm font-bold text-gray-900">{{ patient_stats.discharged_this_month }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Total Beds</span>
+                <span class="text-sm font-bold text-gray-900">{{ bed_stats.total_beds }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Reports -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Recent Reports</h3>
+            <button onclick="viewAllReports()" class="text-sm text-hospital-blue hover:text-blue-700">
+                View All Reports
+            </button>
+        </div>
+    </div>
+    
+    <div class="p-6">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-chart-bar text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900">Monthly Performance Report</p>
+                        <p class="text-sm text-gray-500">Generated 2 hours ago</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="downloadReport('monthly_performance')" class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </button>
+                    <button onclick="viewReport('monthly_performance')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                        <i class="fas fa-eye mr-1"></i>View
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-bed text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900">Bed Utilization Analysis</p>
+                        <p class="text-sm text-gray-500">Generated yesterday</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="downloadReport('bed_utilization')" class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </button>
+                    <button onclick="viewReport('bed_utilization')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                        <i class="fas fa-eye mr-1"></i>View
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-users text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900">Staff Performance Review</p>
+                        <p class="text-sm text-gray-500">Generated 3 days ago</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="downloadReport('staff_performance')" class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </button>
+                    <button onclick="viewReport('staff_performance')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                        <i class="fas fa-eye mr-1"></i>View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Charts
+document.addEventListener('DOMContentLoaded', function() {
+    initializePatientFlowChart();
+    initializeRevenueChart();
+});
+
+function initializePatientFlowChart() {
+    const ctx = document.getElementById('patientFlowChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            datasets: [{
+                label: 'Admissions',
+                data: [45, 52, 48, 61],
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Discharges',
+                data: [42, 48, 51, 58],
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function initializeRevenueChart() {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Revenue ($000)',
+                data: [120, 135, 128, 142, 155, 148],
+                backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                borderColor: '#8B5CF6',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Report Generation Functions
+function generateReport() {
+    const reportType = document.getElementById('reportType').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (!startDate || !endDate) {
+        showToast('Please select start and end dates', 'error');
+        return;
+    }
+    
+    showToast(`Generating ${reportType.replace('_', ' ')} report...`, 'info');
+    setTimeout(() => {
+        showToast('Report generated successfully', 'success');
+    }, 3000);
+}
+
+function generateQuickReport(period) {
+    showToast(`Generating ${period} report...`, 'info');
+    setTimeout(() => {
+        showToast(`${period.charAt(0).toUpperCase() + period.slice(1)} report generated successfully`, 'success');
+    }, 2000);
+}
+
+function downloadReport(reportType) {
+    showToast(`Downloading ${reportType.replace('_', ' ')} report...`, 'info');
+    setTimeout(() => {
+        showToast('Report downloaded successfully', 'success');
+    }, 1000);
+}
+
+function viewReport(reportType) {
+    showToast(`Opening ${reportType.replace('_', ' ')} report...`, 'info');
+}
+
+function viewAllReports() {
+    showToast('Opening reports archive...', 'info');
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

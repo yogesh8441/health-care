@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Medications - {{ patient.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">My Medications</h1>
+                    <p class="text-muted">{{ patient.name }} - Current and Past Medications</p>
+                </div>
+                <a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medication Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Active Medications</h6>
+                            <h3 class="mb-0">{{ current_medications|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-pills fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Completed</h6>
+                            <h3 class="mb-0">{{ completed_medications|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Discontinued</h6>
+                            <h3 class="mb-0">{{ discontinued_medications|length }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-times-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Medications -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-pills"></i> Current Medications
+                        <span class="badge bg-light text-primary ms-2">{{ current_medications|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if current_medications %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Medication</th>
+                                        <th>Dosage</th>
+                                        <th>Frequency</th>
+                                        <th>Route</th>
+                                        <th>Prescribed By</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for medication in current_medications %}
+                                    <tr>
+                                        <td>
+                                            <strong class="text-primary">{{ medication.medication_name }}</strong>
+                                        </td>
+                                        <td>{{ medication.dosage }}</td>
+                                        <td>
+                                            <span class="badge bg-info">{{ medication.frequency }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ medication.route }}</span>
+                                        </td>
+                                        <td>Dr. {{ medication.prescribed_by }}</td>
+                                        <td>{{ medication.start_date.strftime('%Y-%m-%d') }}</td>
+                                        <td>
+                                            {% if medication.end_date %}
+                                                {{ medication.end_date.strftime('%Y-%m-%d') }}
+                                            {% else %}
+                                                <span class="text-muted">Ongoing</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if medication.notes %}
+                                                <span class="text-muted" title="{{ medication.notes }}">
+                                                    {{ medication.notes[:50] }}{% if medication.notes|length > 50 %}...{% endif %}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-pills fa-4x text-muted mb-4"></i>
+                            <h4 class="text-muted">No Current Medications</h4>
+                            <p class="text-muted">You don't have any active medications at the moment.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Medications -->
+    {% if completed_medications %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i> Completed Medications
+                        <span class="badge bg-light text-success ms-2">{{ completed_medications|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medication</th>
+                                    <th>Dosage</th>
+                                    <th>Frequency</th>
+                                    <th>Route</th>
+                                    <th>Prescribed By</th>
+                                    <th>Duration</th>
+                                    <th>Completed Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medication in completed_medications %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ medication.medication_name }}</strong>
+                                    </td>
+                                    <td>{{ medication.dosage }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ medication.frequency }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ medication.route }}</span>
+                                    </td>
+                                    <td>Dr. {{ medication.prescribed_by }}</td>
+                                    <td>
+                                        {% if medication.start_date and medication.end_date %}
+                                            {{ (medication.end_date - medication.start_date).days }} days
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if medication.end_date %}
+                                            {{ medication.end_date.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Discontinued Medications -->
+    {% if discontinued_medications %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-times-circle"></i> Discontinued Medications
+                        <span class="badge bg-light text-warning ms-2">{{ discontinued_medications|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medication</th>
+                                    <th>Dosage</th>
+                                    <th>Prescribed By</th>
+                                    <th>Start Date</th>
+                                    <th>Discontinued Date</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medication in discontinued_medications %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ medication.medication_name }}</strong>
+                                    </td>
+                                    <td>{{ medication.dosage }}</td>
+                                    <td>Dr. {{ medication.prescribed_by }}</td>
+                                    <td>{{ medication.start_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        {% if medication.end_date %}
+                                            {{ medication.end_date.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if medication.notes %}
+                                            <span class="text-muted" title="{{ medication.notes }}">
+                                                {{ medication.notes[:50] }}{% if medication.notes|length > 50 %}...{% endif %}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add tooltips for truncated notes
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+</script>
+{% endblock %}

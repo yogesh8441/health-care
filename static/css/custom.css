@@ -1,0 +1,237 @@
+/* Custom Hospital Dashboard Styles */
+
+/* Status Badge Colors */
+.status-empty {
+    background-color: #dcfce7;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.status-occupied {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.status-reserved {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.status-cleaning {
+    background-color: #fed7aa;
+    color: #9a3412;
+    border-color: #fdba74;
+}
+
+.status-maintenance {
+    background-color: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+/* Card Hover Effects */
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+/* Sidebar Link Styles */
+.sidebar-link {
+    transition: all 0.2s ease;
+}
+
+.sidebar-link:hover {
+    background-color: rgba(44, 123, 229, 0.1);
+    border-left: 4px solid #2C7BE5;
+}
+
+.sidebar-link.active {
+    background-color: rgba(44, 123, 229, 0.15);
+    border-left: 4px solid #2C7BE5;
+    color: #2C7BE5;
+}
+
+/* Custom Color Variables */
+:root {
+    --hospital-blue: #2C7BE5;
+    --success-green: #48C774;
+    --warning-yellow: #FFDD57;
+    --alert-red: #F14668;
+    --bg-light: #F8FAFC;
+    --text-dark: #222B45;
+}
+
+/* Loading Animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast.success {
+    background-color: var(--success-green);
+}
+
+.toast.error {
+    background-color: var(--alert-red);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 14px;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 8px 4px;
+    }
+}
+
+/* Quick Action Buttons */
+.quick-action-btn {
+    transition: all 0.2s ease;
+    transform: scale(1);
+}
+
+.quick-action-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.quick-action-btn:active {
+    transform: scale(0.95);
+}
+
+/* Recently Updated Indicator */
+.recently-updated {
+    animation: highlightFade 3s ease-out;
+}
+
+@keyframes highlightFade {
+    0% {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-left: 4px solid #3b82f6;
+    }
+    100% {
+        background-color: transparent;
+        border-left: none;
+    }
+}
+
+/* Live Update Pulse */
+.live-pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Activity Item Animation */
+.activity-item {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Dropdown Animation */
+.dropdown-menu {
+    animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Status Change Success */
+.status-success {
+    animation: statusPulse 0.5s ease-out;
+}
+
+@keyframes statusPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(34, 197, 94, 0.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .sidebar {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-left: 0 !important;
+    }
+}

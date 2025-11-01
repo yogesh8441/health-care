@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Patients - Hospital Management{% endblock %}
+{% block page_title %}Patient Management{% endblock %}
+
+{% block dashboard_content %}
+<!-- Patients Overview Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                <i class="fas fa-users text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_details|length }}</h3>
+                <p class="text-sm text-gray-500">Active Patients</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-600">
+                <i class="fas fa-pills text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_details|sum(attribute='medication_count') }}</h3>
+                <p class="text-sm text-gray-500">Active Medications</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                <i class="fas fa-lungs text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">{{ patient_details|selectattr('patient.oxygen_required')|list|length }}</h3>
+                <p class="text-sm text-gray-500">Oxygen Required</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patients Table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Patient List</h3>
+            <div class="flex space-x-2">
+                <input type="text" id="searchInput" placeholder="Search patients..." 
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="refreshPatients()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diagnosis</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medications</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="patientsTable">
+                {% for patient_info in patient_details %}
+                <tr class="hover:bg-gray-50 patient-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-blue-600">
+                                        {{ patient_info.patient.name[0] }}{{ patient_info.patient.name.split()[1][0] if patient_info.patient.name.split()|length > 1 else '' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900 patient-name">{{ patient_info.patient.name }}</div>
+                                <div class="text-sm text-gray-500">{{ patient_info.patient.age }}y, {{ patient_info.patient.gender }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ patient_info.ward_name }}</div>
+                        <div class="text-sm text-gray-500">Bed {{ patient_info.bed_number }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">
+                            {% if patient_info.latest_record %}
+                                {{ patient_info.latest_record.diagnosis[:50] }}{% if patient_info.latest_record.diagnosis|length > 50 %}...{% endif %}
+                            {% else %}
+                                <span class="text-gray-400">No diagnosis recorded</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ patient_info.medication_count }} Active
+                            </span>
+                            {% if patient_info.patient.oxygen_required %}
+                            <span class="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                O2: {{ patient_info.patient.oxygen_flow_rate }}L/min
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            Admitted
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="viewPatientDetails({{ patient_info.patient.id }})" 
+                                    class="text-blue-600 hover:text-blue-700" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="viewMedications({{ patient_info.patient.id }})" 
+                                    class="text-green-600 hover:text-green-700" title="View Medications">
+                                <i class="fas fa-pills"></i>
+                            </button>
+                            <button onclick="viewTreatment({{ patient_info.patient.id }})" 
+                                    class="text-purple-600 hover:text-purple-700" title="View Treatment">
+                                <i class="fas fa-stethoscope"></i>
+                            </button>
+                            <button onclick="dischargePatient({{ patient_info.patient.id }}, '{{ patient_info.patient.name }}')" 
+                                    class="text-red-600 hover:text-red-700" title="Discharge Patient">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if not patient_details %}
+    <div class="p-8 text-center">
+        <i class="fas fa-user-injured text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No active patients found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Patient Details Modal -->
+<div id="patientDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900" id="patientModalTitle">Patient Details</h3>
+            <button onclick="closePatientModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="patientModalContent">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Discharge Patient Modal -->
+<div id="dischargePatientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Discharge Patient</h3>
+            <button onclick="closeDischargeModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="mb-4">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                <i class="fas fa-sign-out-alt text-red-600 text-xl"></i>
+            </div>
+            <p class="text-center text-gray-600 mb-4">
+                Are you sure you want to discharge <strong id="dischargePatientName"></strong>?
+            </p>
+            <p class="text-center text-sm text-gray-500 mb-4">
+                This action will complete all active treatments and medications, and mark the bed for cleaning.
+            </p>
+        </div>
+        
+        <form id="dischargePatientForm">
+            <input type="hidden" id="dischargePatientId">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Discharge Summary (Optional)</label>
+                <textarea id="dischargeSummary" class="w-full border-gray-300 rounded-lg" rows="3" 
+                          placeholder="Brief discharge summary or notes..."></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeDischargeModal()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Discharge Patient
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.patient-row');
+    
+    rows.forEach(row => {
+        const patientName = row.querySelector('.patient-name').textContent.toLowerCase();
+        if (patientName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Patient details modal
+async function viewPatientDetails(patientId) {
+    const modal = document.getElementById('patientDetailsModal');
+    const content = document.getElementById('patientModalContent');
+    const title = document.getElementById('patientModalTitle');
+    
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div></div>';
+    
+    try {
+        const response = await fetch(`/api/patient-details/${patientId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            title.textContent = `${data.patient.name} - Patient Details`;
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Patient Information</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Name:</span>
+                                <span class="font-medium">${data.patient.name}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Age:</span>
+                                <span class="font-medium">${data.patient.age} years</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Gender:</span>
+                                <span class="font-medium">${data.patient.gender}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Location:</span>
+                                <span class="font-medium">${data.location}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Admitted:</span>
+                                <span class="font-medium">${data.patient.admitted_on}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-900 mb-3">Current Treatment</h4>
+                        ${data.latest_record ? `
+                            <div class="space-y-2 text-sm">
+                                <div><strong>Diagnosis:</strong> ${data.latest_record.diagnosis}</div>
+                                <div><strong>Treatment:</strong> ${data.latest_record.treatment}</div>
+                                <div><strong>Doctor:</strong> ${data.latest_record.doctor_name}</div>
+                            </div>
+                        ` : '<p class="text-gray-500 text-sm">No treatment records found</p>'}
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <h4 class="font-semibold text-gray-900 mb-3">Active Medications (${data.medications.length})</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${data.medications.map(med => `
+                            <div class="border rounded-lg p-3 bg-green-50 border-green-200">
+                                <div class="font-medium text-green-800">${med.medication_name}</div>
+                                <div class="text-sm text-green-600">${med.dosage} - ${med.frequency}</div>
+                                <div class="text-xs text-gray-500">Route: ${med.route} | By: ${med.prescribed_by}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${data.medications.length === 0 ? '<p class="text-gray-500 text-sm">No active medications</p>' : ''}
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<div class="text-red-600">Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<div class="text-red-600">Error loading patient details</div>`;
+    }
+}
+
+// View medications
+function viewMedications(patientId) {
+    viewPatientDetails(patientId);
+}
+
+// View treatment
+function viewTreatment(patientId) {
+    viewPatientDetails(patientId);
+}
+
+// Close modal
+function closePatientModal() {
+    document.getElementById('patientDetailsModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('patientDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePatientModal();
+    }
+});
+
+// Refresh patients
+function refreshPatients() {
+    showToast('Refreshing patient list...', 'info');
+    setTimeout(() => location.reload(), 1000);
+}
+
+// Discharge Patient
+function dischargePatient(patientId, patientName) {
+    const modal = document.getElementById('dischargePatientModal');
+    document.getElementById('dischargePatientId').value = patientId;
+    document.getElementById('dischargePatientName').textContent = patientName;
+    document.getElementById('dischargeSummary').value = '';
+    modal.classList.remove('hidden');
+}
+
+// Close discharge modal
+function closeDischargeModal() {
+    document.getElementById('dischargePatientModal').classList.add('hidden');
+    document.getElementById('dischargePatientForm').reset();
+}
+
+// Handle discharge form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const dischargeForm = document.getElementById('dischargePatientForm');
+    if (dischargeForm) {
+        dischargeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const patientId = document.getElementById('dischargePatientId').value;
+            const dischargeSummary = document.getElementById('dischargeSummary').value;
+            
+            try {
+                const response = await fetch(`/api/staff/patients/discharge/${patientId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        discharge_summary: dischargeSummary
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(result.message, 'success');
+                    closeDischargeModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(result.error || 'Error discharging patient', 'error');
+                }
+            } catch (error) {
+                showToast('Error discharging patient', 'error');
+            }
+        });
+    }
+});
+
+// Close discharge modal when clicking outside
+document.addEventListener('click', function(e) {
+    const dischargeModal = document.getElementById('dischargePatientModal');
+    if (e.target === dischargeModal) {
+        closeDischargeModal();
+    }
+});
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hospital Management Dashboard{% endblock %}</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: { preflight: false },
+            theme: {
+                extend: {
+                    colors: {
+                        'hospital-blue': '#2C7BE5',
+                        'success-green': '#48C774',
+                        'warning-yellow': '#FFDD57',
+                        'alert-red': '#F14668',
+                        'bg-light': '#F8FAFC',
+                        'text-dark': '#222B45'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js (deferred) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS and JS removed to prevent conflicts with Tailwind -->
+    
+    <!-- Project custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Ensure login form is styled even before Tailwind loads */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2C7BE5 0%, #1e40af 100%);
+        }
+        
+        .login-form {
+            max-width: 28rem;
+            width: 100%;
+            background: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .status-empty { 
+            background-color: #dcfce7; 
+            color: #166534; 
+            border-color: #bbf7d0; 
+        }
+        .status-occupied { 
+            background-color: #fecaca; 
+            color: #991b1b; 
+            border-color: #fca5a5; 
+        }
+        .status-reserved { 
+            background-color: #fef3c7; 
+            color: #92400e; 
+            border-color: #fde68a; 
+        }
+        .status-cleaning { 
+            background-color: #fed7aa; 
+            color: #9a3412; 
+            border-color: #fdba74; 
+        }
+        .status-maintenance { 
+            background-color: #f3f4f6; 
+            color: #374151; 
+            border-color: #d1d5db; 
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar-link {
+            transition: all 0.2s ease;
+        }
+        .sidebar-link:hover {
+            background-color: rgba(44, 123, 229, 0.1);
+            border-left: 4px solid #2C7BE5;
+        }
+        .sidebar-link.active {
+            background-color: rgba(44, 123, 229, 0.15);
+            border-left: 4px solid #2C7BE5;
+            color: #2C7BE5;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    {% if session.user_id %}
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out" id="sidebar">
+        <div class="flex items-center justify-center h-16 bg-hospital-blue">
+            <h1 class="text-white text-xl font-bold">
+                <i class="fas fa-hospital mr-2"></i>
+                MedCare Dashboard
+            </h1>
+        </div>
+        
+        <nav class="mt-8">
+            {% if session.user_role == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie mr-3"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('admin_bed_management') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_bed_management' %}active{% endif %}">
+                <i class="fas fa-bed mr-3"></i>
+                Bed Management
+            </a>
+            <a href="{{ url_for('admin_oxygen_management') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_oxygen_management' %}active{% endif %}">
+                <i class="fas fa-lungs mr-3"></i>
+                Oxygen Management
+            </a>
+            <a href="{{ url_for('admin_staff_management') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_staff_management' %}active{% endif %}">
+                <i class="fas fa-users mr-3"></i>
+                Staff Management
+            </a>
+            <a href="{{ url_for('admin_patients') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_patients' %}active{% endif %}">
+                <i class="fas fa-user-injured mr-3"></i>
+                Patients
+            </a>
+            <a href="{{ url_for('admin_prescriptions') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_prescriptions' %}active{% endif %}">
+                <i class="fas fa-prescription-bottle mr-3"></i>
+                Prescriptions
+            </a>
+            <a href="{{ url_for('admin_shift_management') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_shift_management' %}active{% endif %}">
+                <i class="fas fa-clock mr-3"></i>
+                Shift Management
+            </a>
+            
+            <!-- Enhanced Features -->
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="px-6 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Advanced Features</p>
+                <a href="{{ url_for('admin_inventory') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_inventory' %}active{% endif %}">
+                    <i class="fas fa-boxes mr-3"></i>
+                    Inventory
+                </a>
+                <a href="{{ url_for('admin_reports') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_reports' %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3"></i>
+                    Reports & Analytics
+                </a>
+                <a href="{{ url_for('admin_notifications') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'admin_notifications' %}active{% endif %}">
+                    <i class="fas fa-bell mr-3"></i>
+                    Notifications
+                    <span id="admin-notification-badge" class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1 hidden">0</span>
+                </a>
+            </div>
+            {% elif session.user_role == 'staff' %}
+            <a href="{{ url_for('staff_dashboard') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-line mr-3"></i>
+                My Dashboard
+            </a>
+            <a href="{{ url_for('staff_ward_status') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_ward_status' %}active{% endif %}">
+                <i class="fas fa-bed mr-3"></i>
+                Ward Status
+            </a>
+            <a href="{{ url_for('staff_oxygen_status') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_oxygen_status' %}active{% endif %}">
+                <i class="fas fa-lungs mr-3"></i>
+                Oxygen Status
+            </a>
+            <a href="{{ url_for('staff_patients') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_patients' %}active{% endif %}">
+                <i class="fas fa-user-injured mr-3"></i>
+                Patients
+            </a>
+            
+            <!-- Enhanced Features -->
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="px-6 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Additional Features</p>
+                <a href="{{ url_for('staff_medical_records') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_medical_records' %}active{% endif %}">
+                    <i class="fas fa-file-medical mr-3"></i>
+                    Medical Records
+                </a>
+                <a href="{{ url_for('staff_shifts') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_shifts' %}active{% endif %}">
+                    <i class="fas fa-clock mr-3"></i>
+                    My Shifts
+                </a>
+                <a href="{{ url_for('staff_notifications') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'staff_notifications' %}active{% endif %}">
+                    <i class="fas fa-bell mr-3"></i>
+                    Notifications
+                    <span id="staff-notification-badge" class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1 hidden">0</span>
+                </a>
+            </div>
+            {% elif session.user_role == 'patient' %}
+            <a href="{{ url_for('patient_dashboard') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'patient_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-line mr-3"></i>
+                My Dashboard
+            </a>
+            <a href="{{ url_for('patient_medical_records') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'patient_medical_records' %}active{% endif %}">
+                <i class="fas fa-file-medical mr-3"></i>
+                Medical Records
+            </a>
+            <a href="{{ url_for('patient_medications') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'patient_medications' %}active{% endif %}">
+                <i class="fas fa-pills mr-3"></i>
+                My Medications
+            </a>
+            <a href="{{ url_for('patient_appointments') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'patient_appointments' %}active{% endif %}">
+                <i class="fas fa-calendar-check mr-3"></i>
+                Appointments
+            </a>
+            <a href="{{ url_for('patient_profile') }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-hospital-blue {% if request.endpoint == 'patient_profile' %}active{% endif %}">
+                <i class="fas fa-user mr-3"></i>
+                My Profile
+            </a>
+            {% endif %}
+            
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <a href="{{ url_for('logout') }}" class="sidebar-link flex items-center px-6 py-3 text-red-600 hover:text-red-800">
+                    <i class="fas fa-sign-out-alt mr-3"></i>
+                    Logout
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="lg:ml-64">
+        <!-- Top Navigation -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center">
+                    <button class="lg:hidden text-gray-600 hover:text-gray-900" onclick="toggleSidebar()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h2 class="ml-4 text-xl font-semibold text-gray-800">
+                        {% block page_title %}Dashboard{% endblock %}
+                    </h2>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-hospital-blue rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700">{{ session.user_name }}</span>
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{{ session.user_role.title() }}</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="p-6">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-4 rounded-lg {% if category == 'error' %}bg-red-100 border border-red-300 text-red-700{% else %}bg-green-100 border border-green-300 text-green-700{% endif %}">
+                            <div class="flex items-center">
+                                <i class="fas {% if category == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %} mr-2"></i>
+                                {{ message }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block dashboard_content %}{% endblock %}
+        </main>
+    </div>
+    {% else %}
+    {% block content %}{% endblock %}
+    {% endif %}
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // Close sidebar on mobile when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const isClickInsideSidebar = sidebar.contains(event.target);
+            const isClickOnToggle = event.target.closest('button[onclick="toggleSidebar()"]');
+            
+            if (!isClickInsideSidebar && !isClickOnToggle && window.innerWidth < 1024) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+
+        // Auto-refresh dashboard data every 30 seconds (only when endpoint exists)
+        (function() {
+            let endpoint = null;
+            const path = window.location.pathname || '';
+            if (path.startsWith('/patient')) {
+                endpoint = '/api/patient/dashboard-stats';
+            }
+            if (endpoint) {
+                setInterval(function() {
+                    fetch(endpoint)
+                        .then(r => (r.ok ? r.json() : null))
+                        .then(data => {
+                            if (!data) return;
+                            const totalBedsEl = document.getElementById('total-beds');
+                            const occupiedBedsEl = document.getElementById('occupied-beds');
+                            const availableBedsEl = document.getElementById('available-beds');
+                            if (totalBedsEl && data.total_beds !== undefined) totalBedsEl.textContent = data.total_beds;
+                            if (occupiedBedsEl && data.occupied_beds !== undefined) occupiedBedsEl.textContent = data.occupied_beds;
+                            if (availableBedsEl && data.available_beds !== undefined) availableBedsEl.textContent = data.available_beds;
+                        })
+                        .catch(() => {});
+                }, 30000);
+            }
+        })();
+    </script>
+    
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

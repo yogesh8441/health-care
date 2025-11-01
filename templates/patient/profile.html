@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - {{ patient.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">My Profile</h1>
+                    <p class="text-muted">{{ patient.name }} - Personal Information</p>
+                </div>
+                <a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Personal Information -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user"></i> Personal Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Full Name</label>
+                                <p class="fs-5 fw-bold">{{ patient.name }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Age</label>
+                                <p class="fs-5">{{ patient.age }} years</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Gender</label>
+                                <p class="fs-5">{{ patient.gender.title() }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Phone Number</label>
+                                <p class="fs-6">
+                                    {% if patient.phone %}
+                                        <i class="fas fa-phone text-success"></i> {{ patient.phone }}
+                                    {% else %}
+                                        <span class="text-muted">Not provided</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Blood Group</label>
+                                <p class="fs-6">
+                                    {% if patient.blood_group %}
+                                        <span class="badge bg-danger fs-6">{{ patient.blood_group }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Not specified</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Address</label>
+                                <p class="fs-6">
+                                    {% if patient.address %}
+                                        <i class="fas fa-map-marker-alt text-primary"></i> {{ patient.address }}
+                                    {% else %}
+                                        <span class="text-muted">Not provided</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Emergency Contact</label>
+                                <p class="fs-6">
+                                    {% if patient.emergency_contact %}
+                                        <i class="fas fa-phone-alt text-warning"></i> {{ patient.emergency_contact }}
+                                    {% else %}
+                                        <span class="text-muted">Not provided</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-heartbeat"></i> Medical Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Allergies</label>
+                                {% if patient.allergies %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        {{ patient.allergies }}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No known allergies</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Oxygen Requirements</label>
+                                {% if patient.oxygen_required %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-lungs"></i>
+                                        Oxygen Required
+                                        {% if patient.oxygen_flow_rate %}
+                                            <br><small>Flow Rate: {{ patient.oxygen_flow_rate }} L/min</small>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No oxygen requirements</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Medical History</label>
+                                {% if patient.medical_history %}
+                                    <div class="bg-light p-3 rounded">
+                                        {{ patient.medical_history }}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No medical history recorded</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Information -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-cog"></i> Account Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Email Address</label>
+                                <p class="fs-6">
+                                    <i class="fas fa-envelope text-primary"></i> {{ user.email }}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Account Created</label>
+                                <p class="fs-6">
+                                    <i class="fas fa-calendar text-success"></i> 
+                                    {{ user.created_at.strftime('%B %d, %Y') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Patient ID</label>
+                                <p class="fs-6">
+                                    <code>#{{ patient.id }}</code>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Account Type</label>
+                                <p class="fs-6">
+                                    <span class="badge bg-primary">{{ user.role.title() }}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Current Status -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-hospital"></i> Current Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if ward_info %}
+                        <div class="text-center mb-3">
+                            <i class="fas fa-bed fa-3x text-primary mb-2"></i>
+                            <h6 class="text-primary">Currently Admitted</h6>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <strong>Ward:</strong> {{ ward_info.name }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Ward Type:</strong> {{ ward_info.type.title() }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Bed Number:</strong> {{ ward_info.bed_number }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Admitted On:</strong> 
+                            {{ patient.admitted_on.strftime('%B %d, %Y') if patient.admitted_on else 'N/A' }}
+                        </div>
+                        {% if patient.admitted_on and not patient.discharged_on %}
+                        <div class="mb-2">
+                            <strong>Length of Stay:</strong> 
+                            {{ days_admitted if days_admitted is defined else 0 }} days
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center">
+                            <i class="fas fa-home fa-3x text-muted mb-2"></i>
+                            <h6 class="text-muted">Not Currently Admitted</h6>
+                            <p class="text-muted small">You are not currently admitted to the hospital.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Quick Stats
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total Visits:</span>
+                        <strong>{{ patient.medical_records|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Active Medications:</span>
+                        <strong>{{ patient.medications|selectattr('status', 'equalto', 'active')|list|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total Appointments:</span>
+                        <strong>{{ patient.appointments|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Account Age:</span>
+                        <strong>{{ account_age_days if account_age_days is defined else 0 }} days</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Important Notes -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Important Notes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-shield-alt"></i>
+                        <strong>Privacy:</strong> Your medical information is protected and only accessible to authorized healthcare providers.
+                    </div>
+                    
+                    {% if patient.allergies %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Allergies:</strong> Please ensure all medical staff are aware of your allergies.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-success">
+                        <i class="fas fa-phone"></i>
+                        <strong>Emergency:</strong> In case of emergency, contact hospital reception immediately.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add some interactive elements
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight important information
+        const allergies = document.querySelector('[data-allergies]');
+        if (allergies && allergies.textContent.trim() !== 'No known allergies') {
+            allergies.classList.add('border-warning');
+        }
+        
+        // Add copy functionality for patient ID
+        const patientId = document.querySelector('code');
+        if (patientId) {
+            patientId.style.cursor = 'pointer';
+            patientId.title = 'Click to copy Patient ID';
+            patientId.addEventListener('click', function() {
+                navigator.clipboard.writeText(this.textContent).then(function() {
+                    // Show temporary success message
+                    const originalText = patientId.textContent;
+                    patientId.textContent = 'Copied!';
+                    patientId.classList.add('text-success');
+                    setTimeout(function() {
+                        patientId.textContent = originalText;
+                        patientId.classList.remove('text-success');
+                    }, 2000);
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

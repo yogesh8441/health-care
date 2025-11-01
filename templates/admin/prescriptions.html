@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block title %}Prescription Management - Hospital Admin{% endblock %}
+{% block page_title %}Prescription Management{% endblock %}
+
+{% block dashboard_content %}
+<!-- Prescription Statistics Overview -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Prescriptions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-prescription-bottle text-blue-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total Prescriptions</p>
+                <p class="text-2xl font-bold text-blue-600">{{ prescription_stats.total_prescriptions }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Prescriptions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-pills text-green-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Active</p>
+                <p class="text-2xl font-bold text-green-600">{{ prescription_stats.active_prescriptions }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Prescriptions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100">
+                <i class="fas fa-check-circle text-purple-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Completed</p>
+                <p class="text-2xl font-bold text-purple-600">{{ prescription_stats.completed_prescriptions }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discontinued Prescriptions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-red-100">
+                <i class="fas fa-times-circle text-red-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Discontinued</p>
+                <p class="text-2xl font-bold text-red-600">{{ prescription_stats.discontinued_prescriptions }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Management Actions -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="space-y-3">
+            <button onclick="prescribeMedication()" class="w-full px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Prescribe Medication
+            </button>
+            <button onclick="viewPatientPrescriptions()" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                <i class="fas fa-user-md mr-2"></i>View Patient Prescriptions
+            </button>
+            <button onclick="exportPrescriptions()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-download mr-2"></i>Export Prescriptions
+            </button>
+        </div>
+    </div>
+    
+    <!-- Prescription Status Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Prescription Status</h3>
+        <div class="relative h-48">
+            <canvas id="prescriptionStatusChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Patient Selection -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Patient</h3>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Active Patients</label>
+                <select id="patientSelect" class="w-full border-gray-300 rounded-lg">
+                    <option value="">Select a patient</option>
+                    {% for patient in active_patients %}
+                    <option value="{{ patient.id }}">{{ patient.name }} ({{ patient.age }}{{ patient.gender[0].upper() }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="viewSelectedPatientPrescriptions()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-search mr-2"></i>View Prescriptions
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Prescriptions -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Recent Prescriptions</h3>
+            <button onclick="refreshPrescriptions()" class="text-sm text-hospital-blue hover:text-blue-700">
+                <i class="fas fa-sync-alt mr-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200" id="prescriptionsTable">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medication</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dosage</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prescribed By</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for medication, patient in recent_prescriptions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <span class="text-sm font-medium text-gray-600">{{ patient.name[0] }}</span>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ patient.name }}</div>
+                                <div class="text-sm text-gray-500">{{ patient.age }}{{ patient.gender[0].upper() }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ medication.medication_name }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ medication.dosage }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ medication.frequency }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {{ medication.route.title() }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if medication.status == 'active' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                Active
+                            </span>
+                        {% elif medication.status == 'completed' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                Completed
+                            </span>
+                        {% elif medication.status == 'discontinued' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                Discontinued
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ medication.prescribed_by }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="editPrescription({{ medication.id }})" class="text-hospital-blue hover:text-blue-700">
+                                <i class="fas fa-edit" title="Edit Prescription"></i>
+                            </button>
+                            <button onclick="updatePrescriptionStatus({{ medication.id }}, '{{ medication.status }}')" class="text-green-600 hover:text-green-700">
+                                <i class="fas fa-check" title="Update Status"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if not recent_prescriptions %}
+    <div class="p-8 text-center">
+        <i class="fas fa-prescription-bottle text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No prescriptions found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Prescribe Medication Modal -->
+<div id="prescribeMedicationModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-4/5 max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Prescribe Medication</h3>
+            <button onclick="closePrescribeModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="prescribeMedicationForm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Patient Selection -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Patient</label>
+                    <select id="prescribePatientId" required class="w-full border-gray-300 rounded-lg">
+                        <option value="">Select a patient</option>
+                        {% for patient in active_patients %}
+                        <option value="{{ patient.id }}">{{ patient.name }} ({{ patient.age }}{{ patient.gender[0].upper() }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Medication Details -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Medication Name</label>
+                    <input type="text" id="medicationName" required class="w-full border-gray-300 rounded-lg" placeholder="e.g., Amoxicillin">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dosage</label>
+                    <input type="text" id="dosage" required class="w-full border-gray-300 rounded-lg" placeholder="e.g., 500mg">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+                    <select id="frequency" required class="w-full border-gray-300 rounded-lg">
+                        <option value="">Select frequency</option>
+                        <option value="once daily">Once daily</option>
+                        <option value="twice daily">Twice daily</option>
+                        <option value="three times daily">Three times daily</option>
+                        <option value="four times daily">Four times daily</option>
+                        <option value="every 4 hours">Every 4 hours</option>
+                        <option value="every 6 hours">Every 6 hours</option>
+                        <option value="every 8 hours">Every 8 hours</option>
+                        <option value="every 12 hours">Every 12 hours</option>
+                        <option value="as needed">As needed</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Route</label>
+                    <select id="route" required class="w-full border-gray-300 rounded-lg">
+                        <option value="">Select route</option>
+                        <option value="oral">Oral</option>
+                        <option value="IV">Intravenous (IV)</option>
+                        <option value="IM">Intramuscular (IM)</option>
+                        <option value="subcutaneous">Subcutaneous</option>
+                        <option value="topical">Topical</option>
+                        <option value="inhaler">Inhaler</option>
+                        <option value="nasal">Nasal</option>
+                        <option value="rectal">Rectal</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Duration (Days)</label>
+                    <input type="number" id="durationDays" class="w-full border-gray-300 rounded-lg" placeholder="e.g., 7" min="1">
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                    <textarea id="notes" class="w-full border-gray-300 rounded-lg" rows="3" placeholder="Special instructions or notes..."></textarea>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-2 mt-6">
+                <button type="button" onclick="closePrescribeModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-prescription-bottle mr-2"></i>Prescribe Medication
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Patient Prescriptions Modal -->
+<div id="patientPrescriptionsModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900" id="patientPrescriptionsTitle">Patient Prescriptions</h3>
+            <button onclick="closePatientPrescriptionsModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="patientPrescriptionsContent">
+            <div class="animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Prescription Status Chart
+    const ctx = document.getElementById('prescriptionStatusChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Active', 'Completed', 'Discontinued'],
+            datasets: [{
+                data: [
+                    {{ prescription_stats.active_prescriptions }},
+                    {{ prescription_stats.completed_prescriptions }},
+                    {{ prescription_stats.discontinued_prescriptions }}
+                ],
+                backgroundColor: [
+                    '#10B981',
+                    '#8B5CF6',
+                    '#EF4444'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+
+// Management Functions
+function prescribeMedication() {
+    document.getElementById('prescribeMedicationModal').classList.remove('hidden');
+}
+
+function closePrescribeModal() {
+    document.getElementById('prescribeMedicationModal').classList.add('hidden');
+    document.getElementById('prescribeMedicationForm').reset();
+}
+
+function viewPatientPrescriptions() {
+    const patientId = document.getElementById('patientSelect').value;
+    if (!patientId) {
+        showToast('Please select a patient first', 'error');
+        return;
+    }
+    viewSelectedPatientPrescriptions();
+}
+
+function viewSelectedPatientPrescriptions() {
+    const patientId = document.getElementById('patientSelect').value;
+    if (!patientId) {
+        showToast('Please select a patient first', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('patientPrescriptionsModal');
+    const content = document.getElementById('patientPrescriptionsContent');
+    const title = document.getElementById('patientPrescriptionsTitle');
+    
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div></div>';
+    
+    fetch(`/api/prescriptions/patient/${patientId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                title.textContent = `Prescriptions for ${data.patient.name}`;
+                
+                let html = `
+                    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="font-semibold text-gray-900">Patient Information</h4>
+                        <p class="text-sm text-gray-600">Name: ${data.patient.name}</p>
+                        <p class="text-sm text-gray-600">Age: ${data.patient.age}</p>
+                        <p class="text-sm text-gray-600">Gender: ${data.patient.gender}</p>
+                    </div>
+                `;
+                
+                if (data.medications.length > 0) {
+                    html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+                    html += '<thead class="bg-gray-50"><tr>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Medication</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dosage</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Frequency</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Route</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prescribed By</th>';
+                    html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                    
+                    data.medications.forEach(med => {
+                        const statusClass = med.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                          med.status === 'completed' ? 'bg-purple-100 text-purple-800' : 
+                                          'bg-red-100 text-red-800';
+                        
+                        html += `<tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${med.medication_name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${med.dosage}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${med.frequency}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${med.route}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                                    ${med.status.charAt(0).toUpperCase() + med.status.slice(1)}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${med.prescribed_by}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                } else {
+                    html += '<div class="text-center py-8"><p class="text-gray-500">No prescriptions found for this patient</p></div>';
+                }
+                
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = `<div class="text-center py-8 text-red-600">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            content.innerHTML = '<div class="text-center py-8 text-red-600">Error loading prescriptions</div>';
+        });
+}
+
+function closePatientPrescriptionsModal() {
+    document.getElementById('patientPrescriptionsModal').classList.add('hidden');
+}
+
+// Handle prescription form submission
+document.getElementById('prescribeMedicationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        patient_id: document.getElementById('prescribePatientId').value,
+        medication_name: document.getElementById('medicationName').value,
+        dosage: document.getElementById('dosage').value,
+        frequency: document.getElementById('frequency').value,
+        route: document.getElementById('route').value,
+        duration_days: document.getElementById('durationDays').value,
+        notes: document.getElementById('notes').value
+    };
+    
+    try {
+        const response = await fetch('/api/prescriptions/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showToast(result.message, 'success');
+            closePrescribeModal();
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Error prescribing medication', 'error');
+        }
+    } catch (error) {
+        showToast('Error prescribing medication', 'error');
+    }
+});
+
+function refreshPrescriptions() {
+    showToast('Refreshing prescriptions...', 'info');
+    setTimeout(() => location.reload(), 1000);
+}
+
+function exportPrescriptions() {
+    showToast('Export functionality coming soon...', 'info');
+}
+
+function editPrescription(medicationId) {
+    showToast('Edit functionality coming soon...', 'info');
+}
+
+function updatePrescriptionStatus(medicationId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'completed' : 'active';
+    
+    fetch(`/api/prescriptions/update/${medicationId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Error updating prescription', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating prescription', 'error');
+    });
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Close modals when clicking outside
+document.getElementById('prescribeMedicationModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePrescribeModal();
+    }
+});
+
+document.getElementById('patientPrescriptionsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePatientPrescriptionsModal();
+    }
+});
+</script>
+{% endblock %}

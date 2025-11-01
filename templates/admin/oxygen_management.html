@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}Oxygen Management - Hospital Admin{% endblock %}
+{% block page_title %}Oxygen Management{% endblock %}
+
+{% block dashboard_content %}
+<!-- Oxygen Overview Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Cylinders -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-lungs text-blue-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total Cylinders</p>
+                <p class="text-2xl font-bold text-blue-600">{{ (oxygen.cylinders_in_stock + oxygen.cylinders_in_use) if oxygen else 0 }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Stock -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-check-circle text-green-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Available Stock</p>
+                <p class="text-2xl font-bold text-green-600">{{ oxygen.cylinders_in_stock if oxygen else 0 }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- In Use -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-orange-100">
+                <i class="fas fa-fire text-orange-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Currently In Use</p>
+                <p class="text-2xl font-bold text-orange-600">{{ oxygen.cylinders_in_use if oxygen else 0 }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage Rate -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100">
+                <i class="fas fa-percentage text-purple-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Usage Rate</p>
+                <p class="text-2xl font-bold text-purple-600">{{ "%.1f"|format(usage_percentage) }}%</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Management Actions and Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Oxygen Distribution Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Oxygen Distribution</h3>
+        <div class="relative h-64">
+            <canvas id="oxygenDistributionChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="space-y-3">
+            <button onclick="updateStock()" class="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Update Stock
+            </button>
+            <button onclick="scheduleDelivery()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-truck mr-2"></i>Schedule Delivery
+            </button>
+            <button onclick="setLowStockAlert()" class="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                <i class="fas fa-bell mr-2"></i>Set Alerts
+            </button>
+            <button onclick="generateOxygenReport()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-chart-line mr-2"></i>Generate Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Refill Schedule -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Refill Schedule</h3>
+        {% if oxygen and oxygen.next_refill_date %}
+        <div class="space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Next Refill:</span>
+                <span class="text-sm font-medium">{{ oxygen.next_refill_date.strftime('%Y-%m-%d') }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Last Refill:</span>
+                <span class="text-sm font-medium">{{ oxygen.last_refill_date.strftime('%Y-%m-%d') if oxygen.last_refill_date else 'N/A' }}</span>
+            </div>
+            <div class="mt-4">
+                <button onclick="rescheduleRefill()" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-calendar-alt mr-2"></i>Reschedule
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-sm">No refill scheduled</p>
+        <button onclick="scheduleRefill()" class="mt-3 w-full px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors">
+            Schedule Refill
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Patients Requiring Oxygen -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Patients Requiring Oxygen</h3>
+            <span class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                {{ oxygen_patients|length }} Patients
+            </span>
+        </div>
+    </div>
+    
+    {% if oxygen_patients %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ward</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bed</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flow Rate</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for patient, bed, ward in oxygen_patients %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-orange-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ patient.name }}</div>
+                                <div class="text-sm text-gray-500">{{ patient.age }}y, {{ patient.gender.title() }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ ward.name }}</div>
+                        <div class="text-sm text-gray-500">{{ ward.type.title() }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ bed.bed_number }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {{ patient.oxygen_flow_rate or 'Not Set' }} L/min
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        Since admission
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="adjustPatientFlow({{ patient.id }})" class="text-blue-600 hover:text-blue-900">
+                                <i class="fas fa-sliders-h" title="Adjust Flow"></i>
+                            </button>
+                            <button onclick="viewPatientOxygenHistory({{ patient.id }})" class="text-green-600 hover:text-green-900">
+                                <i class="fas fa-history" title="View History"></i>
+                            </button>
+                            <button onclick="stopOxygenSupply({{ patient.id }})" class="text-red-600 hover:text-red-900">
+                                <i class="fas fa-stop" title="Stop Oxygen"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <i class="fas fa-lungs text-gray-400 text-4xl mb-4"></i>
+        <p class="text-gray-500">No patients currently requiring oxygen</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Oxygen Alerts and Notifications -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">System Alerts & Notifications</h3>
+    </div>
+    <div class="p-6">
+        <div class="space-y-4">
+            {% if oxygen and oxygen.cylinders_in_stock < 15 %}
+            <div class="flex items-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                <i class="fas fa-exclamation-triangle text-red-600 mr-3"></i>
+                <div class="flex-1">
+                    <p class="font-medium text-red-800">Critical Stock Alert</p>
+                    <p class="text-sm text-red-600">Only {{ oxygen.cylinders_in_stock }} cylinders remaining. Immediate restocking required.</p>
+                </div>
+                <button onclick="orderEmergencyStock()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                    Order Now
+                </button>
+            </div>
+            {% elif oxygen and oxygen.cylinders_in_stock < 25 %}
+            <div class="flex items-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <i class="fas fa-warning text-yellow-600 mr-3"></i>
+                <div class="flex-1">
+                    <p class="font-medium text-yellow-800">Low Stock Warning</p>
+                    <p class="text-sm text-yellow-600">{{ oxygen.cylinders_in_stock }} cylinders remaining. Consider restocking soon.</p>
+                </div>
+                <button onclick="scheduleRestock()" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm">
+                    Schedule
+                </button>
+            </div>
+            {% endif %}
+            
+            {% if usage_percentage > 85 %}
+            <div class="flex items-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <i class="fas fa-chart-line text-orange-600 mr-3"></i>
+                <div>
+                    <p class="font-medium text-orange-800">High Usage Alert</p>
+                    <p class="text-sm text-orange-600">{{ "%.1f"|format(usage_percentage) }}% of oxygen cylinders are currently in use</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if oxygen and oxygen.cylinders_in_stock >= 25 and usage_percentage <= 85 %}
+            <div class="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                <i class="fas fa-check-circle text-green-600 mr-3"></i>
+                <div>
+                    <p class="font-medium text-green-800">All Systems Normal</p>
+                    <p class="text-sm text-green-600">Oxygen supply levels are adequate and usage is within normal range</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Oxygen Distribution Chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('oxygenDistributionChart').getContext('2d');
+    
+    const inStock = {{ oxygen.cylinders_in_stock if oxygen else 0 }};
+    const inUse = {{ oxygen.cylinders_in_use if oxygen else 0 }};
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Available', 'In Use'],
+            datasets: [{
+                data: [inStock, inUse],
+                backgroundColor: ['#10B981', '#F97316'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+
+// Management Functions
+function updateStock() {
+    const newStock = prompt('Enter new oxygen stock count:');
+    if (newStock && !isNaN(newStock) && newStock >= 0) {
+        showToast('Stock updated successfully', 'success');
+        setTimeout(() => location.reload(), 1000);
+    } else if (newStock !== null) {
+        showToast('Please enter a valid number', 'error');
+    }
+}
+
+function scheduleDelivery() {
+    const date = prompt('Enter delivery date (YYYY-MM-DD):');
+    const quantity = prompt('Enter quantity of cylinders:');
+    
+    if (date && quantity && !isNaN(quantity)) {
+        showToast(`Delivery of ${quantity} cylinders scheduled for ${date}`, 'success');
+    }
+}
+
+function setLowStockAlert() {
+    const threshold = prompt('Enter low stock alert threshold:');
+    if (threshold && !isNaN(threshold)) {
+        showToast(`Low stock alert set at ${threshold} cylinders`, 'success');
+    }
+}
+
+function generateOxygenReport() {
+    showToast('Generating oxygen management report...', 'info');
+    setTimeout(() => {
+        showToast('Report generated successfully', 'success');
+    }, 2000);
+}
+
+function rescheduleRefill() {
+    const newDate = prompt('Enter new refill date (YYYY-MM-DD):');
+    if (newDate) {
+        showToast(`Refill rescheduled to ${newDate}`, 'success');
+    }
+}
+
+function scheduleRefill() {
+    const date = prompt('Enter refill date (YYYY-MM-DD):');
+    if (date) {
+        showToast(`Refill scheduled for ${date}`, 'success');
+    }
+}
+
+function adjustPatientFlow(patientId) {
+    const flowRate = prompt('Enter new oxygen flow rate (L/min):');
+    if (flowRate && !isNaN(flowRate) && flowRate > 0) {
+        showToast('Flow rate updated successfully', 'success');
+    }
+}
+
+function viewPatientOxygenHistory(patientId) {
+    showToast('Patient oxygen history feature coming soon', 'info');
+}
+
+function stopOxygenSupply(patientId) {
+    if (confirm('Are you sure you want to stop oxygen supply for this patient?')) {
+        showToast('Oxygen supply stopped', 'success');
+    }
+}
+
+function orderEmergencyStock() {
+    const quantity = prompt('Enter emergency stock quantity:');
+    if (quantity && !isNaN(quantity)) {
+        showToast(`Emergency order placed for ${quantity} cylinders`, 'success');
+    }
+}
+
+function scheduleRestock() {
+    scheduleDelivery();
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

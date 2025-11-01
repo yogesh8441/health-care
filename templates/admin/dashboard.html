@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Hospital Management{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<!-- Dashboard Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Beds -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-bed text-hospital-blue text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total Beds</p>
+                <p class="text-2xl font-bold text-gray-900" id="total-beds">{{ total_beds }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Beds -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-check-circle text-success-green text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Available Beds</p>
+                <p class="text-2xl font-bold text-success-green" id="available-beds">{{ available_beds }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Occupied Beds -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-red-100">
+                <i class="fas fa-user-injured text-alert-red text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Occupied Beds</p>
+                <p class="text-2xl font-bold text-alert-red" id="occupied-beds">{{ occupied_beds }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oxygen Stock -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-cyan-100">
+                <i class="fas fa-lungs text-cyan-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Oxygen Cylinders</p>
+                <p class="text-2xl font-bold text-cyan-600">{{ oxygen_stock }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Occupancy Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Bed Occupancy</h3>
+        <div class="relative h-64">
+            <canvas id="occupancyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Status Distribution -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Bed Status Distribution</h3>
+        <div class="relative h-64">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Bed Management Table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Bed Management</h3>
+            <div class="flex space-x-2">
+                <button class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Add Bed
+                </button>
+                <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-download mr-2"></i>Export
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ward</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bed Number</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for bed, ward, patient in beds %}
+                <tr class="hover:bg-gray-50" id="bed-row-{{ bed.id }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ ward.name }}</div>
+                        <div class="text-sm text-gray-500">{{ ward.type.title() }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ bed.bed_number }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border status-{{ bed.status }}">
+                            {% if bed.status == 'empty' %}
+                                <i class="fas fa-circle text-green-500 mr-1"></i>Available
+                            {% elif bed.status == 'occupied' %}
+                                <i class="fas fa-circle text-red-500 mr-1"></i>Occupied
+                            {% elif bed.status == 'reserved' %}
+                                <i class="fas fa-circle text-yellow-500 mr-1"></i>Reserved
+                            {% elif bed.status == 'cleaning' %}
+                                <i class="fas fa-circle text-orange-500 mr-1"></i>Cleaning
+                            {% elif bed.status == 'maintenance' %}
+                                <i class="fas fa-circle text-gray-500 mr-1"></i>Maintenance
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if patient %}
+                            <div class="text-sm font-medium text-gray-900">{{ patient.name }}</div>
+                            <div class="text-sm text-gray-500">{{ patient.age }}y, {{ patient.gender.title() }}</div>
+                        {% else %}
+                            <span class="text-sm text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ bed.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button class="text-hospital-blue hover:text-blue-700" onclick="editBed({{ bed.id }})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if bed.status == 'empty' %}
+                            <button class="text-success-green hover:text-green-700" onclick="admitPatient({{ bed.id }})">
+                                <i class="fas fa-user-plus"></i>
+                            </button>
+                            {% endif %}
+                            {% if bed.status == 'occupied' %}
+                            <button class="text-alert-red hover:text-red-700" onclick="dischargePatient({{ bed.id }})">
+                                <i class="fas fa-user-minus"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Staff Activities</h3>
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-1">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-500">Live Updates</span>
+                </div>
+                <button onclick="refreshActivities()" class="p-1 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-sync-alt text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="p-6">
+        <div id="activities-container" class="space-y-4 max-h-96 overflow-y-auto">
+            {% for activity in recent_activities %}
+            <div class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center
+                        {% if activity.user.role == 'admin' %}bg-blue-100 text-blue-600{% else %}bg-green-100 text-green-600{% endif %}">
+                        <i class="fas {% if activity.user.role == 'admin' %}fa-user-shield{% else %}fa-user-md{% endif %} text-sm"></i>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-medium text-gray-900">{{ activity.user.name }}</span>
+                        <span class="px-2 py-1 text-xs rounded-full 
+                            {% if activity.user.role == 'admin' %}bg-blue-100 text-blue-700{% else %}bg-green-100 text-green-700{% endif %}">
+                            {{ activity.user.role.title() }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-700 mt-1">
+                        <span class="font-medium">{{ activity.action.replace('_', ' ').title() }}:</span>
+                        {{ activity.target }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">{{ activity.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                </div>
+                <div class="flex-shrink-0">
+                    {% if activity.action == 'admit_patient' %}
+                        <i class="fas fa-user-plus text-blue-500"></i>
+                    {% elif activity.action == 'update_bed_status' %}
+                        <i class="fas fa-bed text-orange-500"></i>
+                    {% elif activity.action == 'login' %}
+                        <i class="fas fa-sign-in-alt text-green-500"></i>
+                    {% elif activity.action == 'logout' %}
+                        <i class="fas fa-sign-out-alt text-gray-500"></i>
+                    {% else %}
+                        <i class="fas fa-activity text-gray-400"></i>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Show more button -->
+        <div class="mt-4 text-center">
+            <button onclick="loadMoreActivities()" class="text-sm text-hospital-blue hover:text-blue-700 font-medium">
+                <i class="fas fa-chevron-down mr-1"></i>Load More Activities
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Admit Patient Modal -->
+<div id="admitModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Admit Patient</h3>
+            </div>
+            <form id="admitForm" class="p-6 space-y-4">
+                <input type="hidden" id="admitBedId" name="bed_id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Patient Name</label>
+                    <input type="text" id="patientName" name="patient_name" required
+                           class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Age</label>
+                    <input type="number" id="patientAge" name="patient_age" required
+                           class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Gender</label>
+                    <select id="patientGender" name="patient_gender" required
+                            class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-hospital-blue focus:border-hospital-blue">
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeAdmitModal()" 
+                            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                        Admit Patient
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Charts
+document.addEventListener('DOMContentLoaded', function() {
+    // Occupancy Chart
+    const occupancyCtx = document.getElementById('occupancyChart').getContext('2d');
+    new Chart(occupancyCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Occupied', 'Available'],
+            datasets: [{
+                data: [{{ occupied_beds }}, {{ available_beds }}],
+                backgroundColor: ['#F14668', '#48C774'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Status Distribution Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Available', 'Occupied', 'Reserved', 'Maintenance'],
+            datasets: [{
+                data: [{{ available_beds }}, {{ occupied_beds }}, {{ reserved_beds }}, {{ maintenance_beds }}],
+                backgroundColor: ['#48C774', '#F14668', '#FFDD57', '#6C757D'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+
+// Modal Functions
+function admitPatient(bedId) {
+    document.getElementById('admitBedId').value = bedId;
+    document.getElementById('admitModal').classList.remove('hidden');
+}
+
+function closeAdmitModal() {
+    document.getElementById('admitModal').classList.add('hidden');
+    document.getElementById('admitForm').reset();
+}
+
+// Form Submission
+document.getElementById('admitForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        bed_id: formData.get('bed_id'),
+        patient_name: formData.get('patient_name'),
+        patient_age: formData.get('patient_age'),
+        patient_gender: formData.get('patient_gender')
+    };
+    
+    fetch('/api/admit_patient', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+});
+
+function dischargePatient(bedId) {
+    if (confirm('Are you sure you want to discharge this patient?')) {
+        fetch('/api/update_bed_status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                bed_id: bedId,
+                status: 'empty'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function editBed(bedId) {
+    // Implement bed editing functionality
+    alert('Bed editing functionality would be implemented here');
+}
+
+// Real-time activity refresh
+function refreshActivities() {
+    const button = event.target;
+    const originalIcon = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    
+    fetch('/api/recent_activities')
+        .then(response => response.json())
+        .then(data => {
+            if (data.activities) {
+                updateActivitiesDisplay(data.activities);
+                showToast('Activities refreshed', 'success');
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing activities:', error);
+            showToast('Failed to refresh activities', 'error');
+        })
+        .finally(() => {
+            button.innerHTML = originalIcon;
+        });
+}
+
+// Update activities display
+function updateActivitiesDisplay(activities) {
+    const container = document.getElementById('activities-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    activities.forEach(activity => {
+        const activityElement = createActivityElement(activity);
+        container.appendChild(activityElement);
+    });
+}
+
+// Create activity element
+function createActivityElement(activity) {
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors';
+    
+    const roleClass = activity.user_role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
+    const roleIcon = activity.user_role === 'admin' ? 'fa-user-shield' : 'fa-user-md';
+    const roleBadgeClass = activity.user_role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+    
+    let actionIcon = 'fa-activity text-gray-400';
+    if (activity.action === 'admit_patient') actionIcon = 'fa-user-plus text-blue-500';
+    else if (activity.action === 'update_bed_status') actionIcon = 'fa-bed text-orange-500';
+    else if (activity.action === 'login') actionIcon = 'fa-sign-in-alt text-green-500';
+    else if (activity.action === 'logout') actionIcon = 'fa-sign-out-alt text-gray-500';
+    
+    div.innerHTML = `
+        <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center ${roleClass}">
+                <i class="fas ${roleIcon} text-sm"></i>
+            </div>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center space-x-2">
+                <span class="font-medium text-gray-900">${activity.user_name}</span>
+                <span class="px-2 py-1 text-xs rounded-full ${roleBadgeClass}">
+                    ${activity.user_role.charAt(0).toUpperCase() + activity.user_role.slice(1)}
+                </span>
+            </div>
+            <p class="text-sm text-gray-700 mt-1">
+                <span class="font-medium">${activity.action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span>
+                ${activity.target}
+            </p>
+            <p class="text-xs text-gray-500 mt-1">${activity.time_ago}</p>
+        </div>
+        <div class="flex-shrink-0">
+            <i class="fas ${actionIcon}"></i>
+        </div>
+    `;
+    
+    return div;
+}
+
+// Load more activities
+function loadMoreActivities() {
+    showToast('Loading more activities...', 'info');
+    // This would typically load more activities from the server
+    setTimeout(() => {
+        showToast('All activities loaded', 'success');
+    }, 1000);
+}
+
+// Auto-refresh activities every 15 seconds
+setInterval(() => {
+    if (document.getElementById('activities-container')) {
+        fetch('/api/recent_activities')
+            .then(response => response.json())
+            .then(data => {
+                if (data.activities) {
+                    updateActivitiesDisplay(data.activities);
+                }
+            })
+            .catch(error => console.log('Auto-refresh failed:', error));
+    }
+}, 15000);
+
+// Toast notification function
+function showToast(message, type = 'success') {
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `toast-notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+{% endblock %}

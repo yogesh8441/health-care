@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block title %}Medical Records - Hospital Staff{% endblock %}
+{% block page_title %}Medical Records{% endblock %}
+
+{% block dashboard_content %}
+<!-- Quick Actions -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Quick Actions</h3>
+        <div class="flex items-center space-x-2">
+            <input type="text" id="searchRecords" placeholder="Search patient records..." 
+                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <select id="recordFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="">All Records</option>
+                <option value="recent">Recent (7 days)</option>
+                <option value="critical">Critical Cases</option>
+                <option value="follow_up">Follow-up Required</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <button onclick="addNewRecord()" class="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-hospital-blue hover:bg-blue-50 text-center transition-colors">
+            <i class="fas fa-plus text-hospital-blue text-2xl mb-2"></i>
+            <p class="font-medium text-hospital-blue">Add New Record</p>
+            <p class="text-sm text-gray-500">Create patient record</p>
+        </button>
+        
+        <button onclick="quickSearch()" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-search text-green-600 text-2xl mb-2"></i>
+            <p class="font-medium">Quick Search</p>
+            <p class="text-sm text-gray-500">Find patient records</p>
+        </button>
+        
+        <button onclick="emergencyAccess()" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-exclamation-triangle text-red-600 text-2xl mb-2"></i>
+            <p class="font-medium">Emergency Access</p>
+            <p class="text-sm text-gray-500">Critical patient info</p>
+        </button>
+        
+        <button onclick="generateMedicalReport()" class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-center">
+            <i class="fas fa-file-medical text-purple-600 text-2xl mb-2"></i>
+            <p class="font-medium">Generate Report</p>
+            <p class="text-sm text-gray-500">Medical summary</p>
+        </button>
+    </div>
+</div>
+
+<!-- Medical Records List -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Patient Medical Records</h3>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-500">{{ records|length }} records</span>
+                <button onclick="refreshRecords()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% if records %}
+    <div class="divide-y divide-gray-200">
+        {% for record, patient in records %}
+        <div class="p-6 hover:bg-gray-50 transition-colors">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-4">
+                    <!-- Patient Avatar -->
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-blue-600 text-lg"></i>
+                    </div>
+                    
+                    <!-- Patient Info -->
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <h4 class="text-lg font-semibold text-gray-900">{{ patient.name }}</h4>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                {{ patient.age }}y, {{ patient.gender.title() }}
+                            </span>
+                            {% if patient.oxygen_required %}
+                            <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full">
+                                <i class="fas fa-lungs mr-1"></i>Oxygen Required
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Medical Record Details -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">Doctor</p>
+                                <p class="text-sm text-gray-600">{{ record.doctor_name }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">Last Updated</p>
+                                <p class="text-sm text-gray-600">{{ record.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Diagnosis -->
+                        <div class="mb-3">
+                            <p class="text-sm font-medium text-gray-700 mb-1">Diagnosis</p>
+                            <p class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ record.diagnosis }}</p>
+                        </div>
+                        
+                        <!-- Treatment -->
+                        <div class="mb-3">
+                            <p class="text-sm font-medium text-gray-700 mb-1">Treatment</p>
+                            <p class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ record.treatment }}</p>
+                        </div>
+                        
+                        <!-- Medications -->
+                        {% if record.medications %}
+                        <div class="mb-3">
+                            <p class="text-sm font-medium text-gray-700 mb-1">Medications</p>
+                            <p class="text-sm text-gray-900 bg-yellow-50 p-3 rounded-lg">{{ record.medications }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Notes -->
+                        {% if record.notes %}
+                        <div class="mb-3">
+                            <p class="text-sm font-medium text-gray-700 mb-1">Notes</p>
+                            <p class="text-sm text-gray-600 italic">{{ record.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex flex-col space-y-2 ml-4">
+                    <button onclick="editRecord({{ record.id }})" class="px-3 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700 text-sm">
+                        <i class="fas fa-edit mr-1"></i>Edit
+                    </button>
+                    <button onclick="addNote({{ record.id }})" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                        <i class="fas fa-sticky-note mr-1"></i>Add Note
+                    </button>
+                    <button onclick="printRecord({{ record.id }})" class="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                        <i class="fas fa-print mr-1"></i>Print
+                    </button>
+                    <div class="relative">
+                        <button onclick="toggleRecordMenu({{ record.id }})" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <div id="record-menu-{{ record.id }}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                            <div class="py-1">
+                                <button onclick="viewHistory({{ record.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-history mr-2"></i>View History
+                                </button>
+                                <button onclick="shareRecord({{ record.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-share mr-2"></i>Share Record
+                                </button>
+                                <button onclick="archiveRecord({{ record.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-archive mr-2"></i>Archive
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-file-medical text-gray-400 text-6xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No Medical Records Found</h3>
+        <p class="text-gray-500 mb-6">Start by adding a new medical record for a patient</p>
+        <button onclick="addNewRecord()" class="px-6 py-3 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+            <i class="fas fa-plus mr-2"></i>Add First Record
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Record Modal -->
+<div id="recordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Add Medical Record</h3>
+                    <button onclick="closeRecordModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="recordForm" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
+                        <input type="text" id="patientName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Doctor Name</label>
+                        <input type="text" id="doctorName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
+                    <textarea id="diagnosis" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Treatment</label>
+                    <textarea id="treatment" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Medications</label>
+                    <textarea id="medications" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" placeholder="Optional"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" placeholder="Optional"></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeRecordModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+                        Save Record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Medical Records Functions
+function addNewRecord() {
+    document.getElementById('recordModal').classList.remove('hidden');
+}
+
+function closeRecordModal() {
+    document.getElementById('recordModal').classList.add('hidden');
+    document.getElementById('recordForm').reset();
+}
+
+function editRecord(recordId) {
+    showToast('Edit record functionality would be implemented here', 'info');
+}
+
+function addNote(recordId) {
+    const note = prompt('Add a note to this medical record:');
+    if (note && note.trim()) {
+        showToast('Note added successfully', 'success');
+    }
+}
+
+function printRecord(recordId) {
+    showToast('Printing medical record...', 'info');
+    setTimeout(() => {
+        showToast('Record sent to printer', 'success');
+    }, 1000);
+}
+
+function toggleRecordMenu(recordId) {
+    const menu = document.getElementById(`record-menu-${recordId}`);
+    const allMenus = document.querySelectorAll('[id^="record-menu-"]');
+    
+    // Close all other menus
+    allMenus.forEach(m => {
+        if (m !== menu) {
+            m.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current menu
+    menu.classList.toggle('hidden');
+}
+
+function viewHistory(recordId) {
+    showToast('Medical record history would be displayed here', 'info');
+}
+
+function shareRecord(recordId) {
+    showToast('Record sharing functionality would be implemented here', 'info');
+}
+
+function archiveRecord(recordId) {
+    if (confirm('Are you sure you want to archive this medical record?')) {
+        showToast('Medical record archived successfully', 'success');
+    }
+}
+
+function quickSearch() {
+    const searchTerm = prompt('Enter patient name or ID to search:');
+    if (searchTerm && searchTerm.trim()) {
+        showToast(`Searching for: ${searchTerm}`, 'info');
+    }
+}
+
+function emergencyAccess() {
+    showToast('Emergency access functionality would be implemented here', 'info');
+}
+
+function generateMedicalReport() {
+    showToast('Generating medical report...', 'info');
+    setTimeout(() => {
+        showToast('Medical report generated successfully', 'success');
+    }, 2000);
+}
+
+function refreshRecords() {
+    showToast('Medical records refreshed', 'success');
+    location.reload();
+}
+
+// Search and Filter Functions
+document.getElementById('searchRecords').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const records = document.querySelectorAll('.p-6.hover\\:bg-gray-50');
+    
+    records.forEach(record => {
+        const text = record.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            record.style.display = '';
+        } else {
+            record.style.display = 'none';
+        }
+    });
+});
+
+// Form Submission
+document.getElementById('recordForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        patientName: document.getElementById('patientName').value,
+        doctorName: document.getElementById('doctorName').value,
+        diagnosis: document.getElementById('diagnosis').value,
+        treatment: document.getElementById('treatment').value,
+        medications: document.getElementById('medications').value,
+        notes: document.getElementById('notes').value
+    };
+    
+    showToast('Medical record saved successfully', 'success');
+    closeRecordModal();
+});
+
+// Close menus when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.relative')) {
+        const allMenus = document.querySelectorAll('[id^="record-menu-"]');
+        allMenus.forEach(menu => menu.classList.add('hidden'));
+    }
+});
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

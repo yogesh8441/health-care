@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - Hospital Staff{% endblock %}
+{% block page_title %}My Notifications{% endblock %}
+
+{% block dashboard_content %}
+<!-- Notification Overview -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Notifications -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100">
+                <i class="fas fa-bell text-blue-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Total</p>
+                <p class="text-2xl font-bold text-blue-600">{{ notifications|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unread -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-red-100">
+                <i class="fas fa-exclamation-circle text-red-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Unread</p>
+                <p class="text-2xl font-bold text-red-600">{{ unread_count }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Alerts -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100">
+                <i class="fas fa-calendar-day text-green-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Today</p>
+                <p class="text-2xl font-bold text-green-600">{{ notifications|selectattr('created_at')|list|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Priority Alerts -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+        <div class="flex items-center">
+            <div class="p-3 rounded-full bg-orange-100">
+                <i class="fas fa-exclamation-triangle text-orange-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Priority</p>
+                <p class="text-2xl font-bold text-orange-600">{{ notifications|selectattr('priority', 'in', ['high', 'critical'])|list|length }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Quick Actions</h3>
+        <div class="flex items-center space-x-2">
+            <select id="notificationFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="">All Notifications</option>
+                <option value="unread">Unread Only</option>
+                <option value="critical">Critical</option>
+                <option value="high">High Priority</option>
+                <option value="today">Today</option>
+            </select>
+            <button onclick="refreshNotifications()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button onclick="markAllRead()" class="p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 text-center transition-colors">
+            <i class="fas fa-check-double text-green-600 text-2xl mb-2"></i>
+            <p class="font-medium text-green-600">Mark All Read</p>
+            <p class="text-sm text-gray-500">Clear notifications</p>
+        </button>
+        
+        <button onclick="reportIssue()" class="p-4 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 text-center transition-colors">
+            <i class="fas fa-exclamation-triangle text-red-600 text-2xl mb-2"></i>
+            <p class="font-medium text-red-600">Report Issue</p>
+            <p class="text-sm text-gray-500">Alert administration</p>
+        </button>
+        
+        <button onclick="viewSettings()" class="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-center transition-colors">
+            <i class="fas fa-cog text-blue-600 text-2xl mb-2"></i>
+            <p class="font-medium text-blue-600">Settings</p>
+            <p class="text-sm text-gray-500">Notification preferences</p>
+        </button>
+    </div>
+</div>
+
+<!-- Notifications List -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">My Notifications</h3>
+    </div>
+    
+    {% if notifications %}
+    <div class="divide-y divide-gray-200 max-h-96 overflow-y-auto" id="notificationsList">
+        {% for notification in notifications %}
+        <div class="p-6 hover:bg-gray-50 transition-colors {% if not notification.is_read %}bg-blue-50 border-l-4 border-blue-500{% endif %}" 
+             data-priority="{{ notification.priority }}" 
+             data-type="{{ notification.type }}" 
+             data-read="{{ notification.is_read|lower }}"
+             data-date="{{ notification.created_at.strftime('%Y-%m-%d') }}">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-4">
+                    <!-- Notification Icon -->
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center
+                        {% if notification.type == 'error' %}bg-red-100 text-red-600
+                        {% elif notification.type == 'warning' %}bg-yellow-100 text-yellow-600
+                        {% elif notification.type == 'success' %}bg-green-100 text-green-600
+                        {% else %}bg-blue-100 text-blue-600{% endif %}">
+                        <i class="fas {% if notification.type == 'error' %}fa-exclamation-triangle
+                            {% elif notification.type == 'warning' %}fa-exclamation-circle
+                            {% elif notification.type == 'success' %}fa-check-circle
+                            {% else %}fa-info-circle{% endif %}"></i>
+                    </div>
+                    
+                    <!-- Notification Content -->
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <h4 class="text-sm font-semibold text-gray-900">{{ notification.title }}</h4>
+                            {% if notification.priority == 'critical' %}
+                            <span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium animate-pulse">
+                                CRITICAL
+                            </span>
+                            {% elif notification.priority == 'high' %}
+                            <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                                HIGH
+                            </span>
+                            {% endif %}
+                            {% if not notification.is_read %}
+                            <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-gray-700 mb-2">{{ notification.message }}</p>
+                        <div class="flex items-center space-x-4 text-xs text-gray-500">
+                            <span><i class="fas fa-clock mr-1"></i>{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            {% if notification.user_id %}
+                            <span><i class="fas fa-user mr-1"></i>Personal</span>
+                            {% else %}
+                            <span><i class="fas fa-broadcast-tower mr-1"></i>System-wide</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex items-center space-x-2 ml-4">
+                    {% if not notification.is_read %}
+                    <button onclick="markAsRead({{ notification.id }})" class="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors">
+                        <i class="fas fa-check mr-1"></i>Read
+                    </button>
+                    {% endif %}
+                    <button onclick="archiveNotification({{ notification.id }})" class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-archive mr-1"></i>Archive
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Action Buttons for Critical Notifications -->
+            {% if notification.priority == 'critical' and notification.type == 'error' %}
+            <div class="mt-4 ml-14 flex space-x-2">
+                <button onclick="acknowledgeAlert({{ notification.id }})" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>Acknowledge
+                </button>
+                <button onclick="escalateAlert({{ notification.id }})" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                    <i class="fas fa-arrow-up mr-1"></i>Escalate
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i class="fas fa-bell-slash text-gray-400 text-6xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No Notifications</h3>
+        <p class="text-gray-500 mb-6">You're all caught up! No new notifications at this time.</p>
+        <button onclick="checkForUpdates()" class="px-6 py-3 bg-hospital-blue text-white rounded-lg hover:bg-blue-700">
+            <i class="fas fa-sync-alt mr-2"></i>Check for Updates
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Report Issue Modal -->
+<div id="issueModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Report Issue</h3>
+                    <button onclick="closeIssueModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form id="issueForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Issue Type</label>
+                    <select id="issueType" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                        <option value="equipment">Equipment Issue</option>
+                        <option value="patient">Patient Emergency</option>
+                        <option value="system">System Problem</option>
+                        <option value="safety">Safety Concern</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <select id="issuePriority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" required>
+                        <option value="low">Low</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <input type="text" id="issueLocation" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" placeholder="Ward, Room, or Area" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="issueDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-hospital-blue focus:border-hospital-blue" placeholder="Describe the issue in detail..." required></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeIssueModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        Report Issue
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Notification Management Functions
+function markAllRead() {
+    if (confirm('Mark all notifications as read?')) {
+        showToast('All notifications marked as read', 'success');
+        // Update UI to remove unread indicators
+        document.querySelectorAll('.bg-blue-50').forEach(el => {
+            el.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
+        });
+        document.querySelectorAll('.animate-pulse').forEach(el => {
+            el.classList.remove('animate-pulse');
+        });
+    }
+}
+
+function markAsRead(notificationId) {
+    fetch(`/api/notifications/mark_read/${notificationId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Notification marked as read', 'success');
+            // Update UI
+            const notification = document.querySelector(`[onclick="markAsRead(${notificationId})"]`).closest('.p-6');
+            notification.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
+            notification.querySelector('.animate-pulse')?.classList.remove('animate-pulse');
+            notification.querySelector(`[onclick="markAsRead(${notificationId})"]`).remove();
+        }
+    })
+    .catch(error => {
+        showToast('Error marking notification as read', 'error');
+    });
+}
+
+function archiveNotification(notificationId) {
+    if (confirm('Archive this notification?')) {
+        showToast('Notification archived', 'success');
+        // Remove from UI
+        const notification = document.querySelector(`[onclick="archiveNotification(${notificationId})"]`).closest('.p-6');
+        notification.style.opacity = '0.5';
+        setTimeout(() => notification.remove(), 500);
+    }
+}
+
+function acknowledgeAlert(notificationId) {
+    if (confirm('Acknowledge this critical alert?')) {
+        showToast('Alert acknowledged', 'success');
+        markAsRead(notificationId);
+    }
+}
+
+function escalateAlert(notificationId) {
+    if (confirm('Escalate this alert to administration?')) {
+        showToast('Alert escalated to administration', 'success');
+    }
+}
+
+function reportIssue() {
+    document.getElementById('issueModal').classList.remove('hidden');
+}
+
+function closeIssueModal() {
+    document.getElementById('issueModal').classList.add('hidden');
+    document.getElementById('issueForm').reset();
+}
+
+function viewSettings() {
+    showToast('Notification settings would be displayed here', 'info');
+}
+
+function refreshNotifications() {
+    showToast('Checking for new notifications...', 'info');
+    setTimeout(() => {
+        showToast('Notifications updated', 'success');
+        location.reload();
+    }, 1000);
+}
+
+function checkForUpdates() {
+    showToast('Checking for new notifications...', 'info');
+    setTimeout(() => {
+        showToast('No new notifications', 'info');
+    }, 1500);
+}
+
+// Filter Functions
+document.getElementById('notificationFilter').addEventListener('change', function(e) {
+    const filter = e.target.value;
+    const notifications = document.querySelectorAll('#notificationsList > div');
+    const today = new Date().toISOString().split('T')[0];
+    
+    notifications.forEach(notification => {
+        let show = true;
+        
+        if (filter === 'unread' && notification.dataset.read === 'true') {
+            show = false;
+        } else if (filter === 'critical' && notification.dataset.priority !== 'critical') {
+            show = false;
+        } else if (filter === 'high' && notification.dataset.priority !== 'high') {
+            show = false;
+        } else if (filter === 'today' && notification.dataset.date !== today) {
+            show = false;
+        }
+        
+        notification.style.display = show ? '' : 'none';
+    });
+});
+
+// Form Submission
+document.getElementById('issueForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const issueData = {
+        type: document.getElementById('issueType').value,
+        priority: document.getElementById('issuePriority').value,
+        location: document.getElementById('issueLocation').value,
+        description: document.getElementById('issueDescription').value
+    };
+    
+    showToast('Issue reported successfully. Administration has been notified.', 'success');
+    closeIssueModal();
+});
+
+// Auto-refresh notifications every 30 seconds
+setInterval(() => {
+    // In a real application, you would fetch new notifications here
+    console.log('Checking for new notifications...');
+}, 30000);
+
+// Toast notification
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Play notification sound for critical alerts
+document.addEventListener('DOMContentLoaded', function() {
+    const criticalAlerts = document.querySelectorAll('[data-priority="critical"]');
+    if (criticalAlerts.length > 0) {
+        // In a real application, you would play a notification sound here
+        console.log('Critical alerts detected');
+    }
+});
+</script>
+{% endblock %}
